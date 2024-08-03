@@ -51,6 +51,7 @@ class RentVsBuyManager extends ChangeNotifier {
   Set<String> requiredSliders = {
     "years",
     "homePriceAmount",
+    "monthlyRentAmount",
     "downPaymentRate",
     "lengthOfMortgage",
     "mortgageRate",
@@ -69,11 +70,20 @@ class RentVsBuyManager extends ChangeNotifier {
     ),
     "homePriceAmount": SliderData(
       title: "Home Price",
-      value: 250000.00,
+      value: 260000.00,
       numberType: NumberType.dollar,
       min: 0,
       max: 2000000,
-      popoverDescription: "The value of the home price in USD.",
+      popoverDescription: "The price of the home when purchasing in USD.",
+    ),
+    "monthlyRentAmount": SliderData(
+      title: "Monthly Rent",
+      value: 1800.0,
+      numberType: NumberType.dollar,
+      min: 0.0,
+      max: 10000,
+      popoverDescription:
+          "The amount of rent paid monthly if you were not to purchase a home.",
     ),
     "downPaymentRate": SliderData(
       title: "Downpayment",
@@ -95,7 +105,7 @@ class RentVsBuyManager extends ChangeNotifier {
     ),
     "mortgageRate": SliderData(
       title: "Mortgage Rate",
-      value: 0.065,
+      value: 0.07,
       numberType: NumberType.percentage,
       min: 0,
       max: 0.1,
@@ -145,7 +155,8 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.01,
-      popoverDescription: "The percentage of the home loan paid in PMI costs.",
+      popoverDescription:
+          "The percentage of the home loan paid in primary mortgage insurance costs.",
     ),
     "rentGrowthRate": SliderData(
       title: "Rent Growth",
@@ -217,11 +228,12 @@ class RentVsBuyManager extends ChangeNotifier {
     ),
     "monthlyUtilitiesAmount": SliderData(
       title: "Monthly Utilities",
-      value: 0.0,
+      value: 200.0,
       numberType: NumberType.dollar,
       min: 0.0,
       max: 2000,
-      popoverDescription: "The amount of utility costs monthly.",
+      popoverDescription:
+          "The amount of utility costs monthly. Note, this will be a cost for both purchasing a home and buying a home - so the net gain will be \$0. It is included so the monthly cashflows are correct.",
     ),
     "monthlyCommonFeesAmount": SliderData(
       title: "Monthly Common Fees",
@@ -231,33 +243,25 @@ class RentVsBuyManager extends ChangeNotifier {
       max: 2000,
       popoverDescription: "The amount of common fee costs monthly (i.e. HOA).",
     ),
-    "monthlyRentAmount": SliderData(
-      title: "Monthly Rent",
-      value: 1000.0,
-      numberType: NumberType.dollar,
-      min: 0.0,
-      max: 10000,
-      popoverDescription:
-          "The amount of rent paid monthly if you were not to purchase a home.",
-    ),
     "securityDepositRate": SliderData(
       title: "Security Deposit",
       value: 1.0,
       numberType: NumberType.percentage,
       min: 0.0,
       max: 2.0,
+      divisions: 2,
       popoverDescription:
           "The percentage of first month's rent paid as a security deposit.",
     ),
     "brokersFeeRate": SliderData(
       title: "Brokers Fee",
-      value: 0.01,
+      value: 0.00,
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
       divisions: 20,
       popoverDescription:
-          "The percentage of first month's rent paid as a broker's fee.",
+          "The percentage of first month's rent paid as a broker's fee for renting.",
     ),
     "rentersInsuranceRate": SliderData(
       title: "Renters Insurance",
@@ -290,8 +294,9 @@ class RentVsBuyManager extends ChangeNotifier {
   }
 
   void reset() {
+    filingJointly.value = false;
     investmentTaxRate.value = investmentTaxRate.defaultValue;
-    marginalTaxRate.value = marginalTaxRate.value;
+    marginalTaxRate.value = marginalTaxRate.defaultValue;
     for (int i = 0; i < sliders.length; i++) {
       sliders.values.elementAt(i).value =
           sliders.values.elementAt(i).defaultValue;
@@ -441,7 +446,11 @@ class RentVsBuyManager extends ChangeNotifier {
     var rescaledValues = Vector.fromList(spots.map((i) => i.value).toList());
     final smallest = rescaledValues.min();
     final largest = rescaledValues.max();
-    rescaledValues = rescaledValues.rescale();
+    if (smallest != largest) {
+      rescaledValues = rescaledValues.rescale();
+    } else {
+      rescaledValues = Vector.filled(rescaledValues.length, 0.0);
+    }
     final rescaledIndex =
         Vector.fromList(spots.map((i) => i.index).toList()).rescale();
     for (int i = 0; i < spots.length; i++) {

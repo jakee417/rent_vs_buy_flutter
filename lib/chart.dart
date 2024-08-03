@@ -201,7 +201,7 @@ class _ChartWidget extends State<ChartWidget> {
                       ),
                       const Spacer(),
                       Text(
-                        "This chart shows the Rent vs. Buy tradeoff for various values of ${widget.title.toLowerCase()}. Positive values indicate buying is a better option, negative values indicate renting is a better option.",
+                        "This chart shows the Rent vs. Buy tradeoff for various values of ${widget.title.toLowerCase()}.\n\n Positive values indicate buying is a better option. Negative values indicate renting is a better option.",
                         textAlign: TextAlign.center,
                       ),
                       const Spacer(),

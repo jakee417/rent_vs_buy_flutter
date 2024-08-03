@@ -232,8 +232,11 @@ class RentVsBuy {
     ]);
     final rentersInsurance = rent * rentersInsuranceRate;
     final brokersFeeCost = rent * brokersFeeRate;
-    final totalRentLiability =
-        rent + securityDepositLiability + rentersInsurance + brokersFeeCost;
+    final totalRentLiability = rent +
+        securityDepositLiability +
+        rentersInsurance +
+        brokersFeeCost +
+        homeMonthlyUtilities;
     final totalRentLiabilityCumulative = cumulativeSum(totalRentLiability);
 
     // ########################################################################

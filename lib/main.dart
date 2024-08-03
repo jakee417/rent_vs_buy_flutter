@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -298,17 +299,23 @@ class _Sliders extends State<Sliders> {
   Widget getSlider({
     required SliderData data,
   }) {
+    final isWebMobile = kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.iOS ||
+            defaultTargetPlatform == TargetPlatform.android);
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         thumbShape: const ThumbShape(),
         valueIndicatorShape: SliderComponentShape.noOverlay,
+        allowedInteraction: isWebMobile
+            ? SliderInteraction.slideOnly
+            : SliderInteraction.tapAndSlide,
       ),
       child: Knob(data: data),
     );
   }
 
   Widget getInfoButton({required RentVsBuyManager manager}) {
-    final simpleCurrency = NumberFormat.simpleCurrency();
+    final formatter = NumberFormat.compactSimpleCurrency();
     return TextButton(
       onPressed: () {
         showModalBottomSheet<void>(
@@ -333,7 +340,7 @@ class _Sliders extends State<Sliders> {
                       ),
                       const Spacer(),
                       Text(
-                        "Based off purchasing a home for ${manager.sliders["homePriceAmount"]?.formattedValue} your total home assets will be ${simpleCurrency.format(manager.totalHomeAssetsCumulative)} with a cost of ${simpleCurrency.format(manager.totalHomeLiabilityCumulative)} over ${manager.sliders["years"]?.formattedValue} years. This translates to a home opportunity cost of ${simpleCurrency.format(manager.homeCumulativeOpportunity)} at a ${manager.sliders["homePriceGrowthRate"]?.formattedValue} home price growth rate.\n\n Over the same time, your total rental assets would be ${simpleCurrency.format(manager.totalRentAssetsCumulative)} with cost ${simpleCurrency.format(manager.totalRentLiabilityCumulative)}. The opportunity cost for renting would be ${simpleCurrency.format(manager.rentalCumulativeOpportunity)} at a ${manager.sliders["investmentReturnRate"]?.formattedValue} investment return rate.\n\n Subtracting the rental opportunity cost - home opportunity cost yields a ${manager.rentVsBuyValue > 0 ? "profit" : "loss"} of ${simpleCurrency.format(manager.rentVsBuyValue)}.",
+                        "Based off purchasing a home for ${manager.sliders["homePriceAmount"]?.formattedValue} your total home assets will be ${formatter.format(manager.totalHomeAssetsCumulative)} with a cost of ${formatter.format(manager.totalHomeLiabilityCumulative)} over ${manager.sliders["years"]?.formattedValue} years. This translates to a home opportunity cost of ${formatter.format(manager.homeCumulativeOpportunity)} at a ${manager.sliders["homePriceGrowthRate"]?.formattedValue} home price growth rate.\n\n Over the same time, your total rental assets would be ${formatter.format(manager.totalRentAssetsCumulative)} with cost ${formatter.format(manager.totalRentLiabilityCumulative)}. The opportunity cost for renting would be ${formatter.format(manager.rentalCumulativeOpportunity)} at a ${manager.sliders["investmentReturnRate"]?.formattedValue} investment return rate.\n\n These opportunity costs would yield a ${manager.rentVsBuyValue > 0 ? "profit" : "loss"} of ${NumberFormat.simpleCurrency().format(manager.rentVsBuyValue)}.",
                         textAlign: TextAlign.center,
                       ),
                       const Spacer(),

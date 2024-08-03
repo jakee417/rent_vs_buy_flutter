@@ -22,6 +22,12 @@ class RentVsBuyManager extends ChangeNotifier {
   // Result of the calculation.
   double rentVsBuyValue = 0.0;
   DataFrame? result;
+  double rentalCumulativeOpportunity = 0.0;
+  double homeCumulativeOpportunity = 0.0;
+  double totalHomeAssetsCumulative = 0.0;
+  double totalHomeLiabilityCumulative = 0.0;
+  double totalRentAssetsCumulative = 0.0;
+  double totalRentLiabilityCumulative = 0.0;
 
   // RentVsBuy.calculate args
   SwitchData filingJointly = SwitchData(
@@ -280,6 +286,7 @@ class RentVsBuyManager extends ChangeNotifier {
         sliders[key]?.value = data;
       }
     }
+    onChanged();
   }
 
   void reset() {
@@ -323,6 +330,7 @@ class RentVsBuyManager extends ChangeNotifier {
 
   void onInit() {
     fromPreferences();
+    onChanged();
   }
 
   DataFrame calculate() {
@@ -374,6 +382,15 @@ class RentVsBuyManager extends ChangeNotifier {
   void onChanged() {
     result = calculate();
     rentVsBuyValue = result?["buyVsRent"].data.last;
+    homeCumulativeOpportunity = result?["homeCumulativeOpportunity"].data.last;
+    rentalCumulativeOpportunity =
+        result?["rentalCumulativeOpportunity"].data.last;
+    totalHomeAssetsCumulative = result?["totalHomeAssetsCumulative"].data.last;
+    totalHomeLiabilityCumulative =
+        result?["totalHomeLiabilityCumulative"].data.last;
+    totalRentAssetsCumulative = result?["totalRentAssetsCumulative"].data.last;
+    totalRentLiabilityCumulative =
+        result?["totalRentLiabilityCumulative"].data.last;
     notifyListeners();
   }
 

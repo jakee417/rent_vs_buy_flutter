@@ -171,6 +171,7 @@ class RentVsBuy {
         pmi +
         sellersFee +
         loanPayoff;
+    final totalHomeLiabilityCumulative = cumulativeSum(totalHomeLiability);
 
     // ########################################################################
     // Home Assets.
@@ -215,6 +216,7 @@ class RentVsBuy {
       ...[homeValue.last],
     ]);
     final totalHomeAssets = homeSale + mortgageInterest;
+    final totalHomeAssetsCumulative = cumulativeSum(totalHomeAssets);
 
     // ########################################################################
     // Rent Liabilities.
@@ -232,6 +234,7 @@ class RentVsBuy {
     final brokersFeeCost = rent * brokersFeeRate;
     final totalRentLiability =
         rent + securityDepositLiability + rentersInsurance + brokersFeeCost;
+    final totalRentLiabilityCumulative = cumulativeSum(totalRentLiability);
 
     // ########################################################################
     // Rent Assets.
@@ -239,6 +242,7 @@ class RentVsBuy {
     var securityDepositAsset = List.filled(n, 0.0);
     securityDepositAsset.last = securityDepositRate * monthlyRentAmount;
     final totalRentAssets = Vector.fromList(securityDepositAsset);
+    final totalRentAssetsCumulative = cumulativeSum(totalRentAssets);
 
     // ########################################################################
     // Opportunity Cost.
@@ -308,6 +312,15 @@ class RentVsBuy {
     df = df.addSeries(Series("totalRentLiability", totalRentLiability));
     df = df.addSeries(Series("securityDepositAsset", securityDepositAsset));
     df = df.addSeries(Series("totalRentAsset", totalRentAssets));
+
+    df = df.addSeries(
+        Series("totalHomeAssetsCumulative", totalHomeAssetsCumulative));
+    df = df.addSeries(
+        Series("totalHomeLiabilityCumulative", totalHomeLiabilityCumulative));
+    df = df.addSeries(
+        Series("totalRentAssetsCumulative", totalRentAssetsCumulative));
+    df = df.addSeries(
+        Series("totalRentLiabilityCumulative", totalRentLiabilityCumulative));
 
     df = df.addSeries(Series("homeOpportunityCost", homeOpportunityCost));
     df = df.addSeries(Series("rentalOpportunityCost", rentalOpportunityCost));

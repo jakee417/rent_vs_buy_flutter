@@ -11,8 +11,7 @@ import 'package:undo/undo.dart';
 
 void main() {
   var rentVsBuyManager = RentVsBuyManager();
-  rentVsBuyManager.fromPreferences();
-  rentVsBuyManager.onChanged();
+  rentVsBuyManager.onInit();
   runApp(ChangeNotifierProvider(
     create: (context) => rentVsBuyManager,
     child: const RentVsBuyWidget(),
@@ -308,17 +307,64 @@ class _Sliders extends State<Sliders> {
     );
   }
 
+  Widget getInfoButton({required RentVsBuyManager manager}) {
+    final simpleCurrency = NumberFormat.simpleCurrency();
+    return TextButton(
+      onPressed: () {
+        showModalBottomSheet<void>(
+          context: context,
+          builder: (BuildContext context) {
+            return SizedBox(
+              height: 500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Spacer(),
+                      const Text(
+                        "Rent vs. Buy Result",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      Text(
+                        "Based off purchasing a home for ${manager.sliders["homePriceAmount"]?.formattedValue} your total home assets will be ${simpleCurrency.format(manager.totalHomeAssetsCumulative)} with a cost of ${simpleCurrency.format(manager.totalHomeLiabilityCumulative)} over ${manager.sliders["years"]?.formattedValue} years. This translates to a home opportunity cost of ${simpleCurrency.format(manager.homeCumulativeOpportunity)} at a ${manager.sliders["homePriceGrowthRate"]?.formattedValue} home price growth rate.\n\n Over the same time, your total rental assets would be ${simpleCurrency.format(manager.totalRentAssetsCumulative)} with cost ${simpleCurrency.format(manager.totalRentLiabilityCumulative)}. The opportunity cost for renting would be ${simpleCurrency.format(manager.rentalCumulativeOpportunity)} at a ${manager.sliders["investmentReturnRate"]?.formattedValue} investment return rate.\n\n Subtracting the rental opportunity cost - home opportunity cost yields a ${manager.rentVsBuyValue > 0 ? "profit" : "loss"} of ${simpleCurrency.format(manager.rentVsBuyValue)}.",
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        child: const Text("Done"),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: Text(
+        NumberFormat.simpleCurrency().format(manager.rentVsBuyValue),
+        style: TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+          color: manager.rentVsBuyValue > 0.0 ? Colors.green : Colors.red,
+        ),
+      ),
+    );
+  }
+
   List<Widget> getBottomNavigationBarChildren() {
     return [
       Consumer<RentVsBuyManager>(
-        builder: (context, value, child) => Text(
-          NumberFormat.simpleCurrency().format(value.rentVsBuyValue),
-          style: TextStyle(
-            fontSize: 26,
-            fontWeight: FontWeight.bold,
-            color: value.rentVsBuyValue > 0.0 ? Colors.green : Colors.red,
-          ),
-        ),
+        builder: (context, value, child) => getInfoButton(manager: value),
       ),
       const Spacer(),
       Consumer<RentVsBuyManager>(

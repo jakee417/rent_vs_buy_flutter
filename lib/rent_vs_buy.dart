@@ -24,8 +24,8 @@ class RentVsBuy {
   }
 
   static DataFrame calculate(
-      {num homePriceAmount = 250000.00,
-      num financedFeesAmount = 1000.00,
+      {double homePriceAmount = 250000.00,
+      double financedFeesAmount = 1000.00,
       int years = 30,
       double mortgageRate = 0.035,
       double downPaymentRate = 0.15,
@@ -44,9 +44,9 @@ class RentVsBuy {
       double costsOfSellingHomeRate = 0.03,
       double maintenanceRate = 0.01,
       double homeOwnersInsuranceRate = 0.004,
-      num monthlyUtilitiesAmount = 100.00,
-      num monthlyCommonFeesAmount = 100.00,
-      num monthlyRentAmount = 1000.00,
+      double monthlyUtilitiesAmount = 100.00,
+      double monthlyCommonFeesAmount = 100.00,
+      double monthlyRentAmount = 1000.00,
       double securityDepositRate = 1.0,
       double brokersFeeRate = 0.01,
       double rentersInsuranceRate = 0.01}) {
@@ -126,23 +126,25 @@ class RentVsBuy {
     final maintenance = firstMonthHomeValue * maintenanceRate;
     final insurance = firstMonthHomeValue * homeOwnersInsuranceRate;
     // Mortgage costs.
-    final stopEarly = min(years, lengthOfMortgage) * periods;
-    // TODO: Address the case where years > lengthOfMortgage with padding.
     final ppmt = finance
         .ppmtPer(
-            rate: mortgageRate,
-            per: mortgagePer,
-            nper: lengthOfMortgage * periods,
-            pv: -loan)
-        .subvector(0, stopEarly);
+          rate: mortgageRate,
+          per: mortgagePer,
+          nper: lengthOfMortgage * periods,
+          pv: -loan,
+          padding: max(years - lengthOfMortgage, 0) * periods,
+        )
+        .subvector(0, years * periods);
     final cuPPmt = cumulativeSum(ppmt);
     final ipmt = finance
         .ipmtPer(
-            rate: mortgageRate,
-            per: mortgagePer,
-            nper: lengthOfMortgage * periods,
-            pv: -loan)
-        .subvector(0, stopEarly);
+          rate: mortgageRate,
+          per: mortgagePer,
+          nper: lengthOfMortgage * periods,
+          pv: -loan,
+          padding: max(years - lengthOfMortgage, 0) * periods,
+        )
+        .subvector(0, years * periods);
     final pmt = ppmt + ipmt;
     final remainingHomePricePercentage = (cuPPmt + down) / homePriceAmount;
     final pmiMask = remainingHomePricePercentage
@@ -189,12 +191,13 @@ class RentVsBuy {
     // Mask annual interest sum where we have not exceeded the tax credit limit.
     annualIpmt *= taxCreditLimit;
     final standardDeduction = finance.fvNper(
-        rate: monthlyToAnnual(rate: inflationRate),
-        nper: distinctYears,
-        pmt: 0,
-        pv: -(filingJointly
-            ? jointStandardDeductionAmount
-            : singleStandardDeductionAmount));
+      rate: monthlyToAnnual(rate: inflationRate),
+      nper: distinctYears,
+      pmt: 0,
+      pv: -(filingJointly
+          ? jointStandardDeductionAmount
+          : singleStandardDeductionAmount),
+    );
     // The benefit is anything in excess of the standard deduction.
     final mortgageInterestAnnual =
         (annualIpmt - standardDeduction).mapToVector((i) => i < 0 ? 0 : i) *

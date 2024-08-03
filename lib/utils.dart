@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:finance_updated/finance_updated.dart';
 import 'package:ml_linalg/vector.dart';
 
@@ -53,9 +52,14 @@ class FinanceVector extends Finance {
       required Vector per,
       required num nper,
       required num pv,
-      bool end = true}) {
+      bool end = true,
+      int padding = 0}) {
     return Vector.fromList(
-        per.map((i) => ppmt(rate: rate, per: i, nper: nper, pv: pv)).toList());
+      [
+        ...per.map((i) => ppmt(rate: rate, per: i, nper: nper, pv: pv)),
+        ...List.filled(padding, 0),
+      ],
+    );
   }
 
   Vector ipmtPer(
@@ -63,8 +67,35 @@ class FinanceVector extends Finance {
       required Vector per,
       required num nper,
       required num pv,
-      bool end = true}) {
+      bool end = true,
+      int padding = 0}) {
     return Vector.fromList(
-        per.map((i) => ipmt(rate: rate, per: i, nper: nper, pv: pv)).toList());
+      [
+        ...per.map((i) => ipmt(rate: rate, per: i, nper: nper, pv: pv)),
+        ...List.filled(padding, 0),
+      ],
+    );
   }
+}
+
+Vector linspace(
+    {required double start,
+    required double stop,
+    int num = 50,
+    bool endpoint = true}) {
+  if (num <= 0) {
+    throw ('num need be igual or greater than 0');
+  }
+
+  double delta;
+  if (endpoint) {
+    delta = (stop - start) / (num - 1);
+  } else {
+    delta = (stop - start) / num;
+  }
+
+  var space =
+      Vector.fromList(List<double>.generate(num, (i) => start + delta * i));
+
+  return space;
 }

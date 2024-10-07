@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:csv/csv.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -11,9 +12,12 @@ import 'package:rent_vs_buy/slider_data.dart';
 import 'package:rent_vs_buy/switch_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:undo/undo.dart';
-
 import 'chart.dart';
 import 'utils.dart';
+
+final isWebMobile = kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android);
 
 class RentVsBuyManager extends ChangeNotifier {
   final SharedPreferencesAsync preferences = SharedPreferencesAsync();
@@ -75,6 +79,7 @@ class RentVsBuyManager extends ChangeNotifier {
       min: 0,
       max: 2000000,
       popoverDescription: "The price of the home when purchasing in USD.",
+      divisions: isWebMobile ? 100 : 200,
     ),
     "monthlyRentAmount": SliderData(
       title: "Monthly Rent",
@@ -84,6 +89,7 @@ class RentVsBuyManager extends ChangeNotifier {
       max: 10000,
       popoverDescription:
           "The amount of rent paid monthly if you were not to purchase a home.",
+      divisions: isWebMobile ? 100 : 200,
     ),
     "downPaymentRate": SliderData(
       title: "Downpayment",
@@ -93,6 +99,7 @@ class RentVsBuyManager extends ChangeNotifier {
       max: 1.0,
       popoverDescription:
           "The percentage of the home price you pay as a downpayment.",
+      divisions: isWebMobile ? 100 : 200,
     ),
     "lengthOfMortgage": SliderData(
       title: "Mortgage Length",
@@ -110,6 +117,7 @@ class RentVsBuyManager extends ChangeNotifier {
       min: 0,
       max: 0.1,
       popoverDescription: "The (percent) interest rate paid on the mortgage.",
+      divisions: isWebMobile ? 100 : 200,
     ),
     "homePriceGrowthRate": SliderData(
       title: "Home Price Growth",
@@ -117,7 +125,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.2,
-      divisions: 20,
+      divisions: isWebMobile ? 20 : 40,
       popoverDescription: "The rate at which the home appreciates annually.",
     ),
     "investmentReturnRate": SliderData(
@@ -126,7 +134,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.2,
-      divisions: 20,
+      divisions: isWebMobile ? 20 : 40,
       popoverDescription:
           "The return rate for a hypothetical investment you could make if you didn't purchase the home (opportunity cost).",
     ),
@@ -136,7 +144,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.dollar,
       min: 0,
       max: 50000,
-      divisions: 50,
+      divisions: isWebMobile ? 50: 100,
       popoverDescription:
           "The value of any other fees financed as part of the home loan (i.e. VA loans).",
     ),
@@ -192,7 +200,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: 20,
+      divisions: isWebMobile ? 20 : 40,
       popoverDescription:
           "The percentage of the home price paid in upfront buying costs.",
     ),
@@ -202,7 +210,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: 20,
+      divisions: isWebMobile ? 20 : 40,
       popoverDescription:
           "The percentage of the home price paid at closing in selling costs.",
     ),
@@ -407,7 +415,7 @@ class RentVsBuyManager extends ChangeNotifier {
     required RadioData marginalTaxRate,
     required Map<String, SliderData> sliders,
   }) {
-    const maxLength = 40;
+    final maxLength = isWebMobile ? 40 : 80;
     var slidersCopy = Map.fromEntries(
       sliders.entries.map(
         (i) => MapEntry(

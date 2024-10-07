@@ -10,6 +10,10 @@ import 'package:rent_vs_buy/switch_data.dart';
 import 'package:rent_vs_buy/thumb_shape.dart';
 import 'package:undo/undo.dart';
 
+final isWebMobile = kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.android);
+
 void main() {
   var rentVsBuyManager = RentVsBuyManager();
   rentVsBuyManager.onInit();
@@ -299,9 +303,6 @@ class _Sliders extends State<Sliders> {
   Widget getSlider({
     required SliderData data,
   }) {
-    final isWebMobile = kIsWeb &&
-        (defaultTargetPlatform == TargetPlatform.iOS ||
-            defaultTargetPlatform == TargetPlatform.android);
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         thumbShape: const ThumbShape(),
@@ -316,13 +317,27 @@ class _Sliders extends State<Sliders> {
 
   Widget getInfoButton({required RentVsBuyManager manager}) {
     final formatter = NumberFormat.compactSimpleCurrency();
+    final description =
+        """Purchasing a home for ${manager.sliders["homePriceAmount"]?.formattedValue} your breakdown over ${manager.sliders["years"]?.formattedValue} years will be:
+  - total home assets: ${formatter.format(manager.totalHomeAssetsCumulative)}
+  - total home cost: ${formatter.format(manager.totalHomeLiabilityCumulative)}
+  - total home profit: ${formatter.format(manager.totalHomeAssetsCumulative - manager.totalHomeLiabilityCumulative)}
+  - home opportunity cost: ${formatter.format(manager.homeCumulativeOpportunity)} (${manager.sliders["investmentReturnRate"]?.formattedValue} investment return rate)
+  
+The rent breakdown will be:
+  - total rental assets: ${formatter.format(manager.totalRentAssetsCumulative)} 
+  - total rental cost: ${formatter.format(manager.totalRentLiabilityCumulative)}
+  - total rental profit: ${formatter.format(manager.totalRentAssetsCumulative - manager.totalRentLiabilityCumulative)} 
+  - rental opportunity cost: ${formatter.format(manager.rentalCumulativeOpportunity)} (${manager.sliders["homePriceGrowthRate"]?.formattedValue} home price growth rate)
+""";
+    final bottomLine = "Rental - Home opportunity cost: ${NumberFormat.simpleCurrency().format(manager.rentVsBuyValue)} (${manager.rentVsBuyValue > 0 ? "benefit" : "loss"})";
     return TextButton(
       onPressed: () {
         showModalBottomSheet<void>(
           context: context,
           builder: (BuildContext context) {
             return SizedBox(
-              height: 500,
+              height: isWebMobile ? 1500 : 500,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Center(
@@ -340,7 +355,11 @@ class _Sliders extends State<Sliders> {
                       ),
                       const Spacer(),
                       Text(
-                        "Based off purchasing a home for ${manager.sliders["homePriceAmount"]?.formattedValue} your total home assets will be ${formatter.format(manager.totalHomeAssetsCumulative)} with a cost of ${formatter.format(manager.totalHomeLiabilityCumulative)} over ${manager.sliders["years"]?.formattedValue} years. This translates to a home opportunity cost of ${formatter.format(manager.homeCumulativeOpportunity)} at a ${manager.sliders["homePriceGrowthRate"]?.formattedValue} home price growth rate.\n\n Over the same time, your total rental assets would be ${formatter.format(manager.totalRentAssetsCumulative)} with cost ${formatter.format(manager.totalRentLiabilityCumulative)}. The opportunity cost for renting would be ${formatter.format(manager.rentalCumulativeOpportunity)} at a ${manager.sliders["investmentReturnRate"]?.formattedValue} investment return rate.\n\n These opportunity costs would yield a ${manager.rentVsBuyValue > 0 ? "profit" : "loss"} of ${NumberFormat.simpleCurrency().format(manager.rentVsBuyValue)}.",
+                        description,
+                        textAlign: TextAlign.left,
+                      ),
+                      Text(
+                        bottomLine,
                         textAlign: TextAlign.center,
                       ),
                       const Spacer(),
@@ -358,7 +377,8 @@ class _Sliders extends State<Sliders> {
         );
       },
       child: Text(
-        NumberFormat.simpleCurrency().format(manager.rentVsBuyValue),
+        NumberFormat.simpleCurrency(decimalDigits: 0)
+            .format(manager.rentVsBuyValue),
         style: TextStyle(
           fontSize: 26,
           fontWeight: FontWeight.bold,

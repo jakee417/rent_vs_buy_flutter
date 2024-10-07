@@ -17,7 +17,7 @@ to serve the web server locally. You can access it from a mobile device by brows
 To build for web, run:
 
 ```bash
-flutter build web
+flutter build web --base-href /pages/rent_vs_buy/
 ```
 
 And view the files under the `build/*` directory. If you host this under a different file, make sure to change the `<base href="/">` tag in `index.html` to a relative path of the file.

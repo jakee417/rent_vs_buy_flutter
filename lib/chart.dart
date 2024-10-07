@@ -135,13 +135,6 @@ class _ChartWidget extends State<ChartWidget> {
       maxY: 1.15,
       minX: -0.15,
       maxX: 1.15,
-      // betweenBarsData: [
-      //   BetweenBarsData(
-      //     fromIndex: 0,
-      //     toIndex: 1,
-      //     color: widget.betweenColor,
-      //   )
-      // ],
       lineBarsData: lineBarsData,
       borderData: FlBorderData(show: false),
       titlesData: FlTitlesData(

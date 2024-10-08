@@ -330,14 +330,16 @@ The rent breakdown will be:
   - total rental profit: ${formatter.format(manager.totalRentAssetsCumulative - manager.totalRentLiabilityCumulative)} 
   - rental opportunity cost: ${formatter.format(manager.rentalCumulativeOpportunity)} (${manager.sliders["homePriceGrowthRate"]?.formattedValue} home price growth rate)
 """;
-    final bottomLine = "Rental - Home opportunity cost: ${NumberFormat.simpleCurrency().format(manager.rentVsBuyValue)} (${manager.rentVsBuyValue > 0 ? "benefit" : "loss"})";
+    final bottomLine =
+        "Rental - Home opportunity cost: ${NumberFormat.simpleCurrency().format(manager.rentVsBuyValue)} (${manager.rentVsBuyValue > 0 ? "benefit" : "loss"})";
     return TextButton(
       onPressed: () {
         showModalBottomSheet<void>(
           context: context,
+          isScrollControlled: true,
           builder: (BuildContext context) {
             return SizedBox(
-              height: isWebMobile ? 1500 : 500,
+              height: 500,
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 child: Center(
@@ -561,6 +563,14 @@ class _Knob extends State<Knob> {
         setState(
           () {
             widget.data.value = value;
+            final suffixVariableMultiplier =
+                widget.data.suffixVariableMultiplier;
+            if (suffixVariableMultiplier != null) {
+              final suffixValue =
+                  manager.suffixMultiplier(suffixVariableMultiplier);
+              widget.data.suffix =
+                  widget.data.computeHomeValueSuffix(suffixValue, value);
+            }
             manager.onChanged();
           },
         );
@@ -568,6 +578,7 @@ class _Knob extends State<Knob> {
       onChangeEnd: (value) {
         setState(
           () {
+            widget.data.suffix = "";
             manager.changes.add(
               Change(
                 _value,

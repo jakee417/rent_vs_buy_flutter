@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:rent_vs_buy/data.dart';
-import 'package:rent_vs_buy/thumb_shape.dart';
 
 enum NumberType { dollar, percentage, decimal }
 
@@ -16,12 +14,13 @@ class SliderData implements Data {
     required this.min,
     required this.max,
     this.divisions = 100,
+    this.suffixVariableMultiplier,
   }) : defaultValue = value;
 
   static const widthPercentage = 0.8;
   final String prefix;
   final String title;
-  final String suffix;
+  String suffix;
   @override
   double value;
   @override
@@ -32,27 +31,7 @@ class SliderData implements Data {
   final double min;
   final double max;
   final int divisions;
-
-  Widget getSlider({
-    required BuildContext context,
-    required void Function(double) onChanged,
-  }) {
-    return SliderTheme(
-      data: SliderTheme.of(context).copyWith(
-        thumbShape: const ThumbShape(),
-        valueIndicatorShape: SliderComponentShape.noOverlay,
-      ),
-      child: Slider(
-        value: value,
-        min: min,
-        max: max,
-        divisions: 100,
-        onChanged: onChanged,
-        label: description,
-        inactiveColor: Colors.deepOrangeAccent,
-      ),
-    );
-  }
+  final String? suffixVariableMultiplier;
 
   String formatValue(double number) {
     switch (numberType) {
@@ -75,6 +54,14 @@ class SliderData implements Data {
   }
 
   String get description => prefix + formattedValue + suffix;
+
+  String computeHomeValueSuffix(double homePriceAmount, double percent) {
+    if (suffixVariableMultiplier != null) {
+      final dollarAmount = homePriceAmount * percent;
+      return " ${NumberFormat.compactSimpleCurrency().format(dollarAmount)}";
+    }
+    return "";
+  }
 
   SliderData copy() {
     return SliderData(

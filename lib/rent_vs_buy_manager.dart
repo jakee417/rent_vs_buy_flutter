@@ -19,6 +19,9 @@ final isWebMobile = kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android);
 
+final smallSlider = isWebMobile ? 20 : 40;
+final largeSlider = isWebMobile ? 100 : 200;
+
 class RentVsBuyManager extends ChangeNotifier {
   final SharedPreferencesAsync preferences = SharedPreferencesAsync();
   final changes = ChangeStack();
@@ -79,7 +82,7 @@ class RentVsBuyManager extends ChangeNotifier {
       min: 0,
       max: 2000000,
       popoverDescription: "The price of the home when purchasing in USD.",
-      divisions: isWebMobile ? 100 : 200,
+      divisions: largeSlider,
     ),
     "monthlyRentAmount": SliderData(
       title: "Monthly Rent",
@@ -89,7 +92,7 @@ class RentVsBuyManager extends ChangeNotifier {
       max: 10000,
       popoverDescription:
           "The amount of rent paid monthly if you were not to purchase a home.",
-      divisions: isWebMobile ? 100 : 200,
+      divisions: largeSlider,
     ),
     "downPaymentRate": SliderData(
       title: "Downpayment",
@@ -99,7 +102,8 @@ class RentVsBuyManager extends ChangeNotifier {
       max: 1.0,
       popoverDescription:
           "The percentage of the home price you pay as a downpayment.",
-      divisions: isWebMobile ? 100 : 200,
+      divisions: largeSlider,
+      suffixVariableMultiplier: "homePriceAmount",
     ),
     "lengthOfMortgage": SliderData(
       title: "Mortgage Length",
@@ -117,7 +121,7 @@ class RentVsBuyManager extends ChangeNotifier {
       min: 0,
       max: 0.1,
       popoverDescription: "The (percent) interest rate paid on the mortgage.",
-      divisions: isWebMobile ? 100 : 200,
+      divisions: largeSlider,
     ),
     "homePriceGrowthRate": SliderData(
       title: "Home Price Growth",
@@ -125,7 +129,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.2,
-      divisions: isWebMobile ? 20 : 40,
+      divisions: smallSlider,
       popoverDescription: "The rate at which the home appreciates annually.",
     ),
     "investmentReturnRate": SliderData(
@@ -134,7 +138,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.2,
-      divisions: isWebMobile ? 20 : 40,
+      divisions: smallSlider,
       popoverDescription:
           "The return rate for a hypothetical investment you could make if you didn't purchase the home (opportunity cost).",
     ),
@@ -144,7 +148,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.dollar,
       min: 0,
       max: 50000,
-      divisions: isWebMobile ? 50: 100,
+      divisions: isWebMobile ? 50 : 100,
       popoverDescription:
           "The value of any other fees financed as part of the home loan (i.e. VA loans).",
     ),
@@ -155,7 +159,8 @@ class RentVsBuyManager extends ChangeNotifier {
       min: 0.0,
       max: 0.1,
       popoverDescription:
-          "The percentage of the loan paid in points at closing.",
+          "The percentage of the home loan paid in points at closing.",
+      suffixVariableMultiplier: "loanAmount",
     ),
     "pmiRate": SliderData(
       title: "PMI",
@@ -164,7 +169,8 @@ class RentVsBuyManager extends ChangeNotifier {
       min: 0.0,
       max: 0.01,
       popoverDescription:
-          "The percentage of the home loan paid in primary mortgage insurance costs.",
+          "The percentage of the home loan paid in primary mortgage insurance costs annually.",
+      suffixVariableMultiplier: "loanAmount",
     ),
     "rentGrowthRate": SliderData(
       title: "Rent Growth",
@@ -181,7 +187,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: 10,
+      divisions: isWebMobile ? 10 : 20,
       popoverDescription: "The rate at which inflation rates grow annually.",
     ),
     "propertyTaxRate": SliderData(
@@ -193,6 +199,7 @@ class RentVsBuyManager extends ChangeNotifier {
       divisions: 100,
       popoverDescription:
           "The percentage of the home price paid in taxes annually.",
+      suffixVariableMultiplier: "homePriceAmount",
     ),
     "costsOfBuyingHomeRate": SliderData(
       title: "Buying Costs",
@@ -200,9 +207,10 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: isWebMobile ? 20 : 40,
+      divisions: largeSlider,
       popoverDescription:
           "The percentage of the home price paid in upfront buying costs.",
+      suffixVariableMultiplier: "homePriceAmount",
     ),
     "costsOfSellingHomeRate": SliderData(
       title: "Selling Costs",
@@ -210,9 +218,10 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: isWebMobile ? 20 : 40,
+      divisions: smallSlider,
       popoverDescription:
           "The percentage of the home price paid at closing in selling costs.",
+      suffixVariableMultiplier: "homePriceAmount",
     ),
     "maintenanceRate": SliderData(
       title: "Maintenance",
@@ -220,9 +229,10 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: 20,
+      divisions: smallSlider,
       popoverDescription:
           "The percentage of the home price paid in maintenance costs annually.",
+      suffixVariableMultiplier: "homePriceAmount",
     ),
     "homeOwnersInsuranceRate": SliderData(
       title: "Homeowners Insurance",
@@ -233,6 +243,7 @@ class RentVsBuyManager extends ChangeNotifier {
       divisions: 50,
       popoverDescription:
           "The percentage of the home price paid in home owners insurance costs annually.",
+      suffixVariableMultiplier: "homePriceAmount",
     ),
     "monthlyUtilitiesAmount": SliderData(
       title: "Monthly Utilities",
@@ -257,9 +268,10 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 2.0,
-      divisions: 2,
+      divisions: 4,
       popoverDescription:
           "The percentage of first month's rent paid as a security deposit.",
+      suffixVariableMultiplier: "monthlyRentAmount",
     ),
     "brokersFeeRate": SliderData(
       title: "Brokers Fee",
@@ -267,9 +279,10 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: 20,
+      divisions: smallSlider,
       popoverDescription:
           "The percentage of first month's rent paid as a broker's fee for renting.",
+      suffixVariableMultiplier: "monthlyRentAmount",
     ),
     "rentersInsuranceRate": SliderData(
       title: "Renters Insurance",
@@ -277,11 +290,25 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: 20,
+      divisions: smallSlider,
       popoverDescription:
           "The percentage of monthly rent amount paid as a rental insurance.",
+      suffixVariableMultiplier: "monthlyRentAmount",
     )
   };
+
+  double suffixMultiplier(String suffixVariableMultiplier) {
+    if (sliders.containsKey(suffixVariableMultiplier)) {
+      return sliders[suffixVariableMultiplier]!.value;
+    } else if (suffixVariableMultiplier == "loanAmount") {
+      // loanAmount is a special case since we do not store this as a slider
+      // so compute the loanAmount on the fly.
+      return sliders["homePriceAmount"]!.value *
+              (1 - sliders["downPaymentRate"]!.value) +
+          sliders["financedFeesAmount"]!.value;
+    }
+    return 0.0;
+  }
 
   void fromPreferences() async {
     filingJointly.value =

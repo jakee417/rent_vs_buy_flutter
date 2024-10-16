@@ -12,7 +12,7 @@ environment:
 dependencies:
   csv: ^5.1.1
   finance_updated: ^0.1.0
-  fl_chart: ^0.68.0
+  fl_chart: ^0.69.0
   flutter:
     sdk: flutter
   flutter_localizations:
@@ -28,7 +28,7 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^3.0.0
+  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true

@@ -195,7 +195,7 @@ class RentVsBuyManager extends ChangeNotifier {
       value: 0.0125,
       numberType: NumberType.percentage,
       min: 0.0,
-      max: 0.1,
+      max: 0.05,
       divisions: 100,
       popoverDescription:
           "The percentage of the home price paid in taxes annually.",
@@ -206,7 +206,7 @@ class RentVsBuyManager extends ChangeNotifier {
       value: 0.03,
       numberType: NumberType.percentage,
       min: 0.0,
-      max: 0.1,
+      max: 0.05,
       divisions: largeSlider,
       popoverDescription:
           "The percentage of the home price paid in upfront buying costs.",
@@ -228,7 +228,7 @@ class RentVsBuyManager extends ChangeNotifier {
       value: 0.01,
       numberType: NumberType.percentage,
       min: 0.0,
-      max: 0.1,
+      max: 0.03,
       divisions: smallSlider,
       popoverDescription:
           "The percentage of the home price paid in maintenance costs annually.",

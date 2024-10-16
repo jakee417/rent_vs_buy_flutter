@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_vs_buy/chart.dart';
+import 'package:rent_vs_buy/pie_chart.dart';
 import 'package:rent_vs_buy/radio_data.dart';
 import 'package:rent_vs_buy/rent_vs_buy_manager.dart';
 import 'package:rent_vs_buy/slider_data.dart';
@@ -62,7 +63,10 @@ class _Sliders extends State<Sliders> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Text(widget.title),
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text(widget.title), getPieChartButton(manager: manager)],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -260,6 +264,44 @@ class _Sliders extends State<Sliders> {
       title: title,
       description: popoverDescription,
       defaultValue: defaultValue,
+    );
+  }
+
+  ElevatedButton getPieChartButton({
+    required RentVsBuyManager manager,
+  }) {
+    return ElevatedButton(
+      onPressed: () {
+        final result = manager.calculate();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PieChartWidget(
+              title: "Monthly cost breakdown",
+              ppmt: result["ppmt"].data.map((i) => i as double).toList(),
+              ipmt: result["ipmt"].data.map((i) => i as double).toList(),
+              taxes: result["propertyTaxes"].data.map((i) => i as double).toList(),
+              insurance: result["insurance"].data.map((i) => i as double).toList(),
+              hoa: result["monthlyCommonFees"].data.map((i) => i as double).toList(),
+              maintenance: result["maintenance"].data.map((i) => i as double).toList(),
+              utilities: result["homeMonthlyUtilities"].data.map((i) => i as double).toList(),
+              pmi: result["pmi"].data.map((i) => i as double).toList(),
+            ),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: EdgeInsets.zero,
+        fixedSize: const Size(10, 10),
+        backgroundColor: Theme.of(context).colorScheme.inverseSurface,
+        foregroundColor: Theme.of(context).colorScheme.inversePrimary,
+      ),
+      child: const Icon(
+        Icons.pie_chart_outline_outlined,
+        size: 25.0,
+        semanticLabel: "See pie chart of monthly expenses.",
+      ),
     );
   }
 

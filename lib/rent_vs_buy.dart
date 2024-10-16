@@ -7,7 +7,8 @@ class RentVsBuy {
   static const periods = 12;
   static const singleStandardDeductionAmount = 12950;
   static const jointStandardDeductionAmount = 25900;
-  static const taxCreditLimitAmount = 750000;
+  static const interestTaxCreditLimitAmount = 750000;
+  static const propertyTaxCreditAnnualLimit = 10000.0;
   static const pmiCutoffRate = 0.2;
   static final finance = FinanceVector();
 
@@ -178,19 +179,31 @@ class RentVsBuy {
     // ########################################################################
     // Calculate the annual interest we pay.
     var annualIpmtValues = List.filled(years, 0.0);
+    // Calculate the annual property taxes we pay.
+    var annualPropertyTaxValues = List.filled(years, 0.0);
+    // Reduce monthly expenses to annual expenses
     for (int i = 0; i < years; i++) {
-      var sum = 0.0;
+      var ipmtSum = 0.0;
+      var propertyTaxesSum = 0.0;
       for (int j = 0; j < periods; j++) {
-        sum += ipmt[i * periods + j];
+        final monthlyPeriod = i * periods + j;
+        ipmtSum += ipmt[monthlyPeriod];
+        propertyTaxesSum += propertyTaxes[monthlyPeriod];
       }
-      annualIpmtValues[i] = sum;
+      annualIpmtValues[i] = ipmtSum;
+      annualPropertyTaxValues[i] = propertyTaxesSum;
     }
     var annualIpmt = Vector.fromList(annualIpmtValues);
+    var annualPropertyTax = Vector.fromList(annualPropertyTaxValues);
     // Mask for where we exceed the tax credit limit.
-    final taxCreditLimit = cumulativeSum(annualIpmt)
-        .mapToVector((i) => (i <= taxCreditLimitAmount) ? 1 : 0);
+    final interestTaxCreditLimit = cumulativeSum(annualIpmt)
+        .mapToVector((i) => (i <= interestTaxCreditLimitAmount) ? 1 : 0);
     // Mask annual interest sum where we have not exceeded the tax credit limit.
-    annualIpmt *= taxCreditLimit;
+    annualIpmt *= interestTaxCreditLimit;
+    // Clip property tax to the annual property tax credit limit.
+    annualPropertyTax = annualPropertyTax.mapToVector((i) =>
+        i > propertyTaxCreditAnnualLimit ? propertyTaxCreditAnnualLimit : i);
+    // Compute the standard deduction over time.
     final standardDeduction = finance.fvNper(
       rate: monthlyToAnnual(rate: inflationRate),
       nper: distinctYears,
@@ -199,23 +212,24 @@ class RentVsBuy {
           ? jointStandardDeductionAmount
           : singleStandardDeductionAmount),
     );
+    // Total tax credit per year
+    final totalTaxCredit = annualIpmt + annualPropertyTax;
     // The benefit is anything in excess of the standard deduction.
-    final mortgageInterestAnnual =
-        (annualIpmt - standardDeduction).mapToVector((i) => i < 0 ? 0 : i) *
+    final taxCreditAnnual =
+        (totalTaxCredit - standardDeduction).mapToVector((i) => i < 0 ? 0 : i) *
             marginalTaxRate;
     // Apply the tax credit at the end of the year.
-    var mortgageInterestMonthly = List.filled(n, 0.0);
+    var taxCreditMonthly = List.filled(n, 0.0);
     for (int i = 0; i < years; i++) {
-      mortgageInterestMonthly[i * periods + (periods - 1)] =
-          mortgageInterestAnnual[i];
+      taxCreditMonthly[i * periods + (periods - 1)] = taxCreditAnnual[i];
     }
-    final mortgageInterest = Vector.fromList(mortgageInterestMonthly);
+    final homeTaxCredit = Vector.fromList(taxCreditMonthly);
     // Sell the house in the last month.
     final homeSale = Vector.fromList([
       ...List.filled(n - 1, 0),
       ...[homeValue.last],
     ]);
-    final totalHomeAssets = homeSale + mortgageInterest;
+    final totalHomeAssets = homeSale + homeTaxCredit;
     final totalHomeAssetsCumulative = cumulativeSum(totalHomeAssets);
 
     // ########################################################################
@@ -306,7 +320,7 @@ class RentVsBuy {
     df = df.addSeries(Series("homeMonthlyUtilities", homeMonthlyUtilities));
     df = df.addSeries(Series("totalHomeLiability", totalHomeLiability));
     df = df.addSeries(Series("homeSale", homeSale));
-    df = df.addSeries(Series("mortgageInterest", mortgageInterest));
+    df = df.addSeries(Series("homeTaxCredit", homeTaxCredit));
     df = df.addSeries(Series("totalHomeAssets", totalHomeAssets));
     df = df.addSeries(Series("rent", rent));
     df = df.addSeries(

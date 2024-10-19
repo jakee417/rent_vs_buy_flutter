@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:ml_dataframe/ml_dataframe.dart';
@@ -80,9 +79,9 @@ class RentVsBuyManager extends ChangeNotifier {
       value: 260000.00,
       numberType: NumberType.dollar,
       min: 0,
-      max: 2000000,
+      max: 4000000,
       popoverDescription: "The price of the home when purchasing in USD.",
-      divisions: largeSlider,
+      divisions: (largeSlider) * 2,
     ),
     "monthlyRentAmount": SliderData(
       title: "Monthly Rent",

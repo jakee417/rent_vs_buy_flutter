@@ -8,7 +8,7 @@ final isWebMobile = kIsWeb &&
         defaultTargetPlatform == TargetPlatform.android);
 
 class PieChartWidget extends StatefulWidget {
-  PieChartWidget({
+  const PieChartWidget({
     super.key,
     required this.title,
     required this.ppmt,

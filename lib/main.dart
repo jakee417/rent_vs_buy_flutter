@@ -280,11 +280,20 @@ class _Sliders extends State<Sliders> {
               title: "Monthly cost breakdown",
               ppmt: result["ppmt"].data.map((i) => i as double).toList(),
               ipmt: result["ipmt"].data.map((i) => i as double).toList(),
-              taxes: result["propertyTaxes"].data.map((i) => i as double).toList(),
-              insurance: result["insurance"].data.map((i) => i as double).toList(),
-              hoa: result["monthlyCommonFees"].data.map((i) => i as double).toList(),
-              maintenance: result["maintenance"].data.map((i) => i as double).toList(),
-              utilities: result["homeMonthlyUtilities"].data.map((i) => i as double).toList(),
+              taxes:
+                  result["propertyTaxes"].data.map((i) => i as double).toList(),
+              insurance:
+                  result["insurance"].data.map((i) => i as double).toList(),
+              hoa: result["monthlyCommonFees"]
+                  .data
+                  .map((i) => i as double)
+                  .toList(),
+              maintenance:
+                  result["maintenance"].data.map((i) => i as double).toList(),
+              utilities: result["homeMonthlyUtilities"]
+                  .data
+                  .map((i) => i as double)
+                  .toList(),
               pmi: result["pmi"].data.map((i) => i as double).toList(),
             ),
           ),
@@ -432,10 +441,104 @@ The rent breakdown will be:
     );
   }
 
+  Widget getBudgetInfoButton({required RentVsBuyManager manager}) {
+    final result = manager.result;
+    final ppmt = result?["ppmt"].data.map((i) => i as double).toList()[0] ?? 0;
+    final ipmt = result?["ipmt"].data.map((i) => i as double).toList()[0] ?? 0;
+    final taxes =
+        result?["propertyTaxes"].data.map((i) => i as double).toList()[0] ?? 0;
+    final insurance =
+        result?["insurance"].data.map((i) => i as double).toList()[0] ?? 0;
+    final hoa =
+        result?["monthlyCommonFees"].data.map((i) => i as double).toList()[0] ??
+            0;
+    final maintenance =
+        result?["maintenance"].data.map((i) => i as double).toList()[0] ?? 0;
+    final utilities = result?["homeMonthlyUtilities"]
+            .data
+            .map((i) => i as double)
+            .toList()[0] ??
+        0;
+    final pmi = result?["pmi"].data.map((i) => i as double).toList()[0] ?? 0;
+    final totalPayment =
+        ppmt + ipmt + taxes + insurance + hoa + maintenance + utilities + pmi;
+
+    final formatter = NumberFormat.simpleCurrency();
+    final description =
+        """Purchasing a home for ${manager.sliders["homePriceAmount"]?.formattedValue} your first monthly payment will be:
+  - Principal Payment: ${formatter.format(ppmt)}
+  - Interest Payment: ${formatter.format(ipmt)}
+  - Taxes: ${formatter.format(taxes)}
+  - Insurance: ${formatter.format(insurance)}
+  - Common Fees: ${formatter.format(hoa)}
+  - Maintenance: ${formatter.format(maintenance)}
+  - Utilities: ${formatter.format(utilities)}
+  - Primary Mortgage Insurance: ${formatter.format(pmi)}
+""";
+    final bottomLine = "Total Monthly Cost: ${formatter.format(totalPayment)}";
+    return TextButton(
+      onPressed: () {
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (BuildContext context) {
+            return SizedBox(
+              height: 500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Spacer(),
+                      const Text(
+                        "Monthly Payment",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      Text(
+                        description,
+                        textAlign: TextAlign.left,
+                      ),
+                      Text(
+                        bottomLine,
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        child: const Text("Done"),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: Text(
+        '${NumberFormat.simpleCurrency(decimalDigits: 0).format(totalPayment)} / mo',
+        style: const TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
   List<Widget> getBottomNavigationBarChildren() {
     return [
       Consumer<RentVsBuyManager>(
         builder: (context, value, child) => getInfoButton(manager: value),
+      ),
+      Consumer<RentVsBuyManager>(
+        builder: (context, value, child) => getBudgetInfoButton(manager: value),
       ),
       const Spacer(),
       Consumer<RentVsBuyManager>(

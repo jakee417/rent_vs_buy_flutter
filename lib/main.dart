@@ -10,18 +10,24 @@ import 'package:rent_vs_buy/slider_data.dart';
 import 'package:rent_vs_buy/switch_data.dart';
 import 'package:rent_vs_buy/thumb_shape.dart';
 import 'package:undo/undo.dart';
+import 'package:flutter_web_plugins/url_strategy.dart';
 
 final isWebMobile = kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android);
 
 void main() {
+  usePathUrlStrategy();
+  final pathUrlStrategy = PathUrlStrategy();
+  var uri = Uri.parse(pathUrlStrategy.getPath());
   var rentVsBuyManager = RentVsBuyManager();
-  rentVsBuyManager.onInit();
-  runApp(ChangeNotifierProvider(
-    create: (context) => rentVsBuyManager,
-    child: const RentVsBuyWidget(),
-  ));
+  rentVsBuyManager.onInit(uri);
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => rentVsBuyManager,
+      child: const RentVsBuyWidget(),
+    ),
+  );
 }
 
 class RentVsBuyWidget extends StatelessWidget {
@@ -41,8 +47,19 @@ class RentVsBuyWidget extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       home: const Sliders(title: 'Rent vs. Buy Calculator'),
+      onGenerateRoute: generateRoute,
     );
   }
+}
+
+Route<dynamic> generateRoute(RouteSettings settings) {
+  final routeName = settings.name ?? '';
+  return MaterialPageRoute(
+    settings: RouteSettings(name: routeName),
+    builder: (context) {
+      return const Sliders(title: 'Rent vs. Buy Calculator');
+    },
+  );
 }
 
 class Sliders extends StatefulWidget {
@@ -72,6 +89,14 @@ class _Sliders extends State<Sliders> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: getDrawerItems(manager: manager),
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.small(
+        onPressed: manager.copyUriClosure(context),
+        child: const Icon(
+          Icons.share,
+          size: 25.0,
+          semanticLabel: "See pie chart of monthly expenses.",
         ),
       ),
       body: Padding(
@@ -626,7 +651,7 @@ The rent breakdown will be:
           semanticLabel: "Copy a monthly breakdown of cashflows.",
         ),
         onTap: () {
-          manager.copy();
+          manager.copyCSV();
           Navigator.pop(context);
         },
       ),

@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:csv/csv.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:ml_dataframe/ml_dataframe.dart';
@@ -10,6 +11,7 @@ import 'package:rent_vs_buy/rent_vs_buy.dart';
 import 'package:rent_vs_buy/slider_data.dart';
 import 'package:rent_vs_buy/switch_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:string_validator/string_validator.dart';
 import 'package:undo/undo.dart';
 import 'chart.dart';
 import 'utils.dart';
@@ -327,6 +329,25 @@ class RentVsBuyManager extends ChangeNotifier {
     onChanged();
   }
 
+  void fromUri(Uri uri) {
+    final queryParameters = uri.queryParameters;
+    filingJointly.value =
+        queryParameters['filingJointly']?.toBoolean() ?? filingJointly.value;
+    investmentTaxRate.value =
+        queryParameters['investmentTaxRate']?.toDouble() ??
+            investmentTaxRate.value;
+    marginalTaxRate.value =
+        queryParameters['marginalTaxRate']?.toDouble() ?? marginalTaxRate.value;
+    for (int i = 0; i < sliders.length; i++) {
+      String key = sliders.keys.elementAt(i);
+      final data = queryParameters[key]?.toDouble();
+      if (data != null) {
+        sliders[key]?.value = data;
+      }
+    }
+    onChanged();
+  }
+
   void reset() {
     filingJointly.value = false;
     investmentTaxRate.value = investmentTaxRate.defaultValue;
@@ -348,6 +369,38 @@ class RentVsBuyManager extends ChangeNotifier {
     }
   }
 
+  Uri toUri() {
+    final Map<String, String> queryParameters = {};
+    queryParameters["investmentTaxRate"] = investmentTaxRate.value.toString();
+    queryParameters["marginalTaxRate"] = marginalTaxRate.value.toString();
+    queryParameters["filingJointly"] = filingJointly.value.toString();
+    for (int i = 0; i < sliders.length; i++) {
+      String key = sliders.keys.elementAt(i);
+      String value = sliders.values.elementAt(i).value.toString();
+      queryParameters[key] = value;
+    }
+    final uri = Uri(queryParameters: queryParameters);
+    return uri;
+  }
+
+  VoidCallback? copyUriClosure(BuildContext context) {
+    void copyUri() async {
+      final uri = toUri();
+      await Clipboard.setData(
+              ClipboardData(text: Uri.base.toString() + uri.toString()))
+          .then(
+        (_) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("URL copied to clipboard")));
+          }
+        },
+      );
+    }
+
+    return copyUri;
+  }
+
   String createCSV() {
     final rowData = result?.rows
         .map((i) => i
@@ -362,14 +415,17 @@ class RentVsBuyManager extends ChangeNotifier {
     return const ListToCsvConverter().convert(rowData);
   }
 
-  void copy() async {
+  void copyCSV() async {
     final csv = createCSV();
     await Clipboard.setData(ClipboardData(text: csv));
   }
 
-  void onInit() {
-    fromPreferences();
-    onChanged();
+  void onInit(Uri uri) {
+    if (uri.hasQuery) {
+      fromUri(uri);
+    } else {
+      fromPreferences();
+    }
   }
 
   DataFrame calculate() {

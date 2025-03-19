@@ -23,6 +23,9 @@ dependencies:
   provider: ^6.1.2
   shared_preferences: ^2.3.0
   undo: ^1.5.0
+  flutter_web_plugins:
+    sdk: flutter
+  string_validator: ^1.1.0
 
 dev_dependencies:
   flutter_test:

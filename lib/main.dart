@@ -533,14 +533,22 @@ The rent breakdown will be:
   }
 
   List<Widget> getBottomNavigationBarChildren() {
-    return [
-      Consumer<RentVsBuyManager>(
-        builder: (context, value, child) => getInfoButton(manager: value),
-      ),
-      Consumer<RentVsBuyManager>(
-        builder: (context, value, child) => getBudgetInfoButton(manager: value),
-      ),
-      const Spacer(),
+    final leftWidgets = isWebMobile
+        ? [
+            Consumer<RentVsBuyManager>(
+              builder: (context, value, child) => getInfoButton(manager: value),
+            )
+          ]
+        : [
+            Consumer<RentVsBuyManager>(
+              builder: (context, value, child) => getInfoButton(manager: value),
+            ),
+            Consumer<RentVsBuyManager>(
+              builder: (context, value, child) =>
+                  getBudgetInfoButton(manager: value),
+            )
+          ];
+    final rightWidgets = [
       Consumer<RentVsBuyManager>(
         builder: (context, value, child) => ElevatedButton(
           onPressed: !value.changes.canUndo
@@ -591,6 +599,11 @@ The rent breakdown will be:
           ),
         ),
       ),
+    ];
+    return [
+      ...leftWidgets,
+      const Spacer(),
+      ...rightWidgets,
     ];
   }
 

@@ -315,6 +315,8 @@ class RentVsBuy {
     df = df.addSeries(Series("ipmt", ipmt));
     df = df.addSeries(Series("pmt", pmt));
     df = df.addSeries(Series("pmi", pmi));
+    df = df.addSeries(
+        Series("remainingHomePricePercentage", remainingHomePricePercentage));
     df = df.addSeries(Series("sellersFee", sellersFee));
     df = df.addSeries(Series("loanPayoff", loanPayoff));
     df = df.addSeries(Series("homeMonthlyUtilities", homeMonthlyUtilities));

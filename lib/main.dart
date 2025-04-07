@@ -18,7 +18,8 @@ final isWebMobile = kIsWeb &&
 
 void main() {
   usePathUrlStrategy();
-  final pathUrlStrategy = PathUrlStrategy();
+  // ignore: prefer_const_constructors
+  var pathUrlStrategy = PathUrlStrategy();
   var uri = Uri.parse(pathUrlStrategy.getPath());
   var rentVsBuyManager = RentVsBuyManager();
   rentVsBuyManager.onInit(uri);
@@ -731,10 +732,55 @@ class Knob extends StatefulWidget {
 class _Knob extends State<Knob> {
   double _value = 0.0;
 
+  void _incrementValue() {
+    final step = (widget.data.max - widget.data.min) / widget.data.divisions;
+    final newValue =
+        (widget.data.value + step).clamp(widget.data.min, widget.data.max);
+    _updateValue(newValue);
+  }
+
+  void _decrementValue() {
+    final step = (widget.data.max - widget.data.min) / widget.data.divisions;
+    final newValue =
+        (widget.data.value - step).clamp(widget.data.min, widget.data.max);
+    _updateValue(newValue);
+  }
+
+  void _updateValue(double newValue) {
+    setState(() {
+      final oldValue = widget.data.value;
+      widget.data.value = newValue;
+      final suffixVariableMultiplier = widget.data.suffixVariableMultiplier;
+      if (suffixVariableMultiplier != null) {
+        final manager = context.read<RentVsBuyManager>();
+        final suffixValue = manager.suffixMultiplier(suffixVariableMultiplier);
+        widget.data.suffix =
+            widget.data.computeHomeValueSuffix(suffixValue, newValue);
+      }
+      final manager = context.read<RentVsBuyManager>();
+      manager.onChanged();
+      manager.changes.add(
+        Change(
+          oldValue,
+          () {
+            widget.data.value = newValue;
+            manager.onChanged();
+            manager.onChangeEnd();
+          },
+          (oldValue) {
+            widget.data.value = oldValue;
+            manager.onChanged();
+            manager.onChangeEnd();
+          },
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     var manager = context.read<RentVsBuyManager>();
-    return Slider(
+    final slider = Slider(
       value: widget.data.value,
       min: widget.data.min,
       max: widget.data.max,
@@ -784,6 +830,37 @@ class _Knob extends State<Knob> {
       thumbColor: Theme.of(context).colorScheme.onPrimaryContainer,
       inactiveColor: Theme.of(context).colorScheme.primaryContainer,
     );
+    if (isWebMobile) {
+      return Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_left),
+            onPressed: _decrementValue,
+            tooltip: 'Decrease value',
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(
+              minWidth: 32,
+              minHeight: 32,
+            ),
+            iconSize: 20,
+          ),
+          Expanded(child: slider),
+          IconButton(
+            icon: const Icon(Icons.arrow_right),
+            onPressed: _incrementValue,
+            tooltip: 'Increase value',
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(
+              minWidth: 32,
+              minHeight: 32,
+            ),
+            iconSize: 20,
+          ),
+        ],
+      );
+    } else {
+      return slider;
+    }
   }
 }
 

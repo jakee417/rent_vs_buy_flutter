@@ -43,6 +43,18 @@ class RentVsBuyManager extends ChangeNotifier {
     value: false,
     popoverDescription: "Whether you file your taxes jointly.",
   );
+  SwitchData vaLoan = SwitchData(
+    title: "VA Loan",
+    value: false,
+    popoverDescription:
+        "Whether you are financing a VA loan. If you are using a VA loan, but not financing the fee, include this in 'Buying Costs'.",
+  );
+  SwitchData firstTimeHomebuyer = SwitchData(
+    title: "First Time Homebuyer",
+    value: true,
+    popoverDescription:
+        "Whether you are a first time homebuyer. Only used for VA loans.",
+  );
   RadioData investmentTaxRate = RadioData(
     title: "Capital Gains Tax",
     value: 0.15,
@@ -151,7 +163,7 @@ class RentVsBuyManager extends ChangeNotifier {
       max: 50000,
       divisions: isWebMobile ? 50 : 100,
       popoverDescription:
-          "The value of any other fees financed as part of the home loan (i.e. VA loans).",
+          "The value of any other fees financed as part of the home loan. This is different than closing costs, which are not financed as part of the home loan. See 'Buying Costs' for more details.",
     ),
     "pointsRate": SliderData(
       title: "Points",
@@ -338,6 +350,10 @@ class RentVsBuyManager extends ChangeNotifier {
             investmentTaxRate.value;
     marginalTaxRate.value =
         queryParameters['marginalTaxRate']?.toDouble() ?? marginalTaxRate.value;
+    vaLoan.value = queryParameters['vaLoan']?.toBoolean() ?? vaLoan.value;
+    firstTimeHomebuyer.value =
+        queryParameters['firstTimeHomebuyer']?.toBoolean() ??
+            firstTimeHomebuyer.value;
     for (int i = 0; i < sliders.length; i++) {
       String key = sliders.keys.elementAt(i);
       final data = queryParameters[key]?.toDouble();
@@ -350,6 +366,8 @@ class RentVsBuyManager extends ChangeNotifier {
 
   void reset() {
     filingJointly.value = false;
+    vaLoan.value = false;
+    firstTimeHomebuyer.value = true;
     investmentTaxRate.value = investmentTaxRate.defaultValue;
     marginalTaxRate.value = marginalTaxRate.defaultValue;
     for (int i = 0; i < sliders.length; i++) {
@@ -362,6 +380,8 @@ class RentVsBuyManager extends ChangeNotifier {
     await preferences.setDouble("investmentTaxRate", investmentTaxRate.value);
     await preferences.setDouble("marginalTaxRate", marginalTaxRate.value);
     await preferences.setBool("filingJointly", filingJointly.value);
+    await preferences.setBool("vaLoan", vaLoan.value);
+    await preferences.setBool("firstTimeHomebuyer", firstTimeHomebuyer.value);
     for (int i = 0; i < sliders.length; i++) {
       String key = sliders.keys.elementAt(i);
       double value = sliders.values.elementAt(i).value;
@@ -374,6 +394,8 @@ class RentVsBuyManager extends ChangeNotifier {
     queryParameters["investmentTaxRate"] = investmentTaxRate.value.toString();
     queryParameters["marginalTaxRate"] = marginalTaxRate.value.toString();
     queryParameters["filingJointly"] = filingJointly.value.toString();
+    queryParameters["vaLoan"] = vaLoan.value.toString();
+    queryParameters["firstTimeHomebuyer"] = firstTimeHomebuyer.value.toString();
     for (int i = 0; i < sliders.length; i++) {
       String key = sliders.keys.elementAt(i);
       String value = sliders.values.elementAt(i).value.toString();
@@ -431,6 +453,8 @@ class RentVsBuyManager extends ChangeNotifier {
   DataFrame calculate() {
     return _calculate(
       filingJointly: filingJointly,
+      vaLoan: vaLoan,
+      firstTimeHomebuyer: firstTimeHomebuyer,
       investmentTaxRate: investmentTaxRate,
       marginalTaxRate: marginalTaxRate,
       sliders: sliders,
@@ -439,6 +463,8 @@ class RentVsBuyManager extends ChangeNotifier {
 
   static DataFrame _calculate({
     required SwitchData filingJointly,
+    required SwitchData vaLoan,
+    required SwitchData firstTimeHomebuyer,
     required RadioData investmentTaxRate,
     required RadioData marginalTaxRate,
     required Map<String, SliderData> sliders,
@@ -458,6 +484,8 @@ class RentVsBuyManager extends ChangeNotifier {
       investmentTaxRate: investmentTaxRate.value,
       inflationRate: sliders["inflationRate"]!.value,
       filingJointly: filingJointly.value,
+      vaLoan: vaLoan.value,
+      firstTimeHomebuyer: firstTimeHomebuyer.value,
       propertyTaxRate: sliders["propertyTaxRate"]!.value,
       marginalTaxRate: marginalTaxRate.value,
       costsOfBuyingHomeRate: sliders["costsOfBuyingHomeRate"]!.value,
@@ -493,6 +521,8 @@ class RentVsBuyManager extends ChangeNotifier {
     required String key,
     required SliderData data,
     required SwitchData filingJointly,
+    required SwitchData vaLoan,
+    required SwitchData firstTimeHomebuyer,
     required RadioData investmentTaxRate,
     required RadioData marginalTaxRate,
     required Map<String, SliderData> sliders,
@@ -520,6 +550,8 @@ class RentVsBuyManager extends ChangeNotifier {
       slidersCopy[key]!.value = gridItem;
       final value = _calculate(
         filingJointly: filingJointly,
+        vaLoan: vaLoan,
+        firstTimeHomebuyer: firstTimeHomebuyer,
         investmentTaxRate: investmentTaxRate,
         marginalTaxRate: marginalTaxRate,
         sliders: slidersCopy,

@@ -123,6 +123,7 @@ class _Sliders extends State<Sliders> {
                 getSwitch(
                   data: manager.filingJointly,
                   manager: manager,
+                  subtitle: null,
                 ),
                 getRadio(
                   data: manager.investmentTaxRate,
@@ -132,6 +133,33 @@ class _Sliders extends State<Sliders> {
                   data: manager.marginalTaxRate,
                   manager: manager,
                 ),
+                getSwitch(
+                  data: manager.vaLoan,
+                  manager: manager,
+                  subtitle: Consumer<RentVsBuyManager>(
+                    builder: (context, value, child) {
+                      final vaFundingFee = value.result?["vaFundingFee"].data
+                          .map((i) => i as double)
+                          .toList()[0];
+                      if (vaFundingFee == null || vaFundingFee < 1.00) {
+                        return const SizedBox.shrink();
+                      }
+                      return Text(
+                        "(${NumberFormat.simpleCurrency().format(vaFundingFee)})",
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(fontStyle: FontStyle.italic),
+                      );
+                    },
+                  ),
+                ),
+                if (manager.vaLoan.value)
+                  getSwitch(
+                    data: manager.firstTimeHomebuyer,
+                    manager: manager,
+                    subtitle: null,
+                  ),
                 ...getSliders(
                   context: context,
                   sliders: Map.fromEntries(
@@ -157,6 +185,7 @@ class _Sliders extends State<Sliders> {
   Column getSwitch({
     required SwitchData data,
     required RentVsBuyManager manager,
+    required Widget? subtitle,
   }) {
     Switch switchWidget = Switch(
       value: data.value,
@@ -198,6 +227,7 @@ class _Sliders extends State<Sliders> {
               popoverDescription: data.popoverDescription,
               defaultValue: "True",
             ),
+            subtitle ?? const SizedBox.shrink(),
             const Spacer()
           ],
         ),
@@ -356,6 +386,8 @@ class _Sliders extends State<Sliders> {
                 key: key,
                 data: data,
                 filingJointly: manager.filingJointly,
+                vaLoan: manager.vaLoan,
+                firstTimeHomebuyer: manager.firstTimeHomebuyer,
                 investmentTaxRate: manager.investmentTaxRate,
                 marginalTaxRate: manager.marginalTaxRate,
                 sliders: manager.sliders,

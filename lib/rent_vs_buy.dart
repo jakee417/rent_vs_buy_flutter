@@ -24,6 +24,28 @@ class RentVsBuy {
     return i < 0 ? 0 : i;
   }
 
+  static double computeVaFundingFee(
+      {required double loan,
+      required bool vaLoan,
+      required double downPaymentRate,
+      required bool firstTimeHomebuyer}) {
+    var vaFundingFee = 0.0;
+    if (vaLoan) {
+      if (downPaymentRate < 0.05) {
+        if (firstTimeHomebuyer) {
+          vaFundingFee = 0.0215 * loan;
+        } else {
+          vaFundingFee = 0.033 * loan;
+        }
+      } else if (downPaymentRate < 0.1) {
+        vaFundingFee = 0.015 * loan;
+      } else {
+        vaFundingFee = 0.0125 * loan;
+      }
+    }
+    return vaFundingFee;
+  }
+
   static DataFrame calculate(
       {double homePriceAmount = 250000.00,
       double financedFeesAmount = 1000.00,
@@ -39,6 +61,8 @@ class RentVsBuy {
       double investmentTaxRate = 0.15,
       double inflationRate = 0.02,
       bool filingJointly = false,
+      bool vaLoan = false,
+      bool firstTimeHomebuyer = false,
       double propertyTaxRate = 0.0135,
       double marginalTaxRate = 0.2,
       double costsOfBuyingHomeRate = 0.04,
@@ -57,6 +81,15 @@ class RentVsBuy {
     var loan = homePriceAmount * (1.0 - downPaymentRate);
     final down = homePriceAmount - loan;
     loan += financedFeesAmount;
+    // VA loan is a financed fee that has a specific formula:
+    // https://www.va.gov/housing-assistance/home-loans/funding-fee-and-closing-costs/
+    var vaFundingFee = computeVaFundingFee(
+      loan: loan,
+      vaLoan: vaLoan,
+      downPaymentRate: downPaymentRate,
+      firstTimeHomebuyer: firstTimeHomebuyer,
+    );
+    loan += vaFundingFee;
 
     // ########################################################################
     // Convert to monthly rates.
@@ -304,6 +337,12 @@ class RentVsBuy {
     df = df.addSeries(Series("perInv", perInv));
     df = df.addSeries(Series("homeValue", homeValue));
     df = df.addSeries(Series("downFee", downFee));
+    df = df.addSeries(Series(
+        "vaFundingFee",
+        Vector.fromList([
+          ...[vaFundingFee],
+          ...List.filled(n - 1, 0)
+        ])));
     df = df.addSeries(Series("buyingClosingCosts", buyingClosingCosts));
     df = df.addSeries(Series("points", points));
     df = df.addSeries(Series("monthlyCommonFees", monthlyCommonFees));

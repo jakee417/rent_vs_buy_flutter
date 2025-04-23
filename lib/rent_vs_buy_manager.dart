@@ -21,8 +21,8 @@ final isWebMobile = kIsWeb &&
     (defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android);
 
-final smallSlider = isWebMobile ? 20 : 40;
-final largeSlider = isWebMobile ? 100 : 200;
+const smallSlider = 40;
+const largeSlider = 200;
 
 class RentVsBuyManager extends ChangeNotifier {
   final SharedPreferencesAsync preferences = SharedPreferencesAsync();
@@ -162,7 +162,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.dollar,
       min: 0,
       max: 50000,
-      divisions: isWebMobile ? 50 : 100,
+      divisions: 100,
       popoverDescription:
           "The value of any other fees financed as part of the home loan. This is different than closing costs, which are not financed as part of the home loan. See 'Buying Costs' for more details.",
     ),
@@ -201,7 +201,7 @@ class RentVsBuyManager extends ChangeNotifier {
       numberType: NumberType.percentage,
       min: 0.0,
       max: 0.1,
-      divisions: isWebMobile ? 10 : 20,
+      divisions: 20,
       popoverDescription: "The rate at which inflation rates grow annually.",
     ),
     "propertyTaxRate": SliderData(

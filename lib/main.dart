@@ -866,7 +866,7 @@ class _Knob extends State<Knob> {
     if (isWebMobile) {
       return Row(
         children: [
-          IconButton(
+          IconButton.filledTonal(
             icon: const Icon(Icons.arrow_left),
             onPressed: _decrementValue,
             tooltip: 'Decrease value',
@@ -878,7 +878,7 @@ class _Knob extends State<Knob> {
             iconSize: 20,
           ),
           Expanded(child: slider),
-          IconButton(
+          IconButton.filledTonal(
             icon: const Icon(Icons.arrow_right),
             onPressed: _incrementValue,
             tooltip: 'Increase value',

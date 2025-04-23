@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_vs_buy/chart.dart';
@@ -78,105 +79,131 @@ class _Sliders extends State<Sliders> {
   @override
   Widget build(BuildContext context) {
     var manager = context.read<RentVsBuyManager>();
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [Text(widget.title), getPieChartButton(manager: manager)],
+    return RawKeyboardListener(
+      focusNode: FocusNode(),
+      onKey: (RawKeyEvent event) {
+        if (event is RawKeyDownEvent) {
+          if (event.isMetaPressed || event.isControlPressed) {
+            if (event.logicalKey == LogicalKeyboardKey.keyZ) {
+              if (event.isShiftPressed) {
+                // Cmd/Ctrl + Shift + Z for redo
+                if (manager.changes.canRedo) {
+                  setState(() {
+                    manager.changes.redo();
+                  });
+                }
+              } else {
+                // Cmd/Ctrl + Z for undo
+                if (manager.changes.canUndo) {
+                  setState(() {
+                    manager.changes.undo();
+                  });
+                }
+              }
+            }
+          }
+        }
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [Text(widget.title), getPieChartButton(manager: manager)],
+          ),
         ),
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: getDrawerItems(manager: manager),
+        drawer: Drawer(
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: getDrawerItems(manager: manager),
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton.small(
-        onPressed: manager.copyUriClosure(context),
-        child: const Icon(
-          Icons.share,
-          size: 25.0,
-          semanticLabel: "See pie chart of monthly expenses.",
+        floatingActionButton: FloatingActionButton.small(
+          onPressed: manager.copyUriClosure(context),
+          child: const Icon(
+            Icons.share,
+            size: 25.0,
+            semanticLabel: "See pie chart of monthly expenses.",
+          ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(
-          vertical: 5,
-          horizontal: 20.0,
-        ),
-        child: ListView(
-          shrinkWrap: true,
-          children: [
-            ...getSliders(
-              context: context,
-              sliders: Map.fromEntries(
-                manager.sliders.entries.where(
-                  (k) => manager.requiredSliders.contains(k.key),
-                ),
-              ),
-              manager: manager,
-            ),
-            ExpansionTile(
-              title: const Text("Show More"),
-              children: [
-                getSwitch(
-                  data: manager.filingJointly,
-                  manager: manager,
-                  subtitle: null,
-                ),
-                getRadio(
-                  data: manager.investmentTaxRate,
-                  manager: manager,
-                ),
-                getRadio(
-                  data: manager.marginalTaxRate,
-                  manager: manager,
-                ),
-                getSwitch(
-                  data: manager.vaLoan,
-                  manager: manager,
-                  subtitle: Consumer<RentVsBuyManager>(
-                    builder: (context, value, child) {
-                      final vaFundingFee = value.result?["vaFundingFee"].data
-                          .map((i) => i as double)
-                          .toList()[0];
-                      if (vaFundingFee == null || vaFundingFee < 1.00) {
-                        return const SizedBox.shrink();
-                      }
-                      return Text(
-                        "(${NumberFormat.simpleCurrency().format(vaFundingFee)})",
-                        style: Theme.of(context)
-                            .textTheme
-                            .bodySmall
-                            ?.copyWith(fontStyle: FontStyle.italic),
-                      );
-                    },
+        body: Padding(
+          padding: const EdgeInsets.symmetric(
+            vertical: 5,
+            horizontal: 20.0,
+          ),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              ...getSliders(
+                context: context,
+                sliders: Map.fromEntries(
+                  manager.sliders.entries.where(
+                    (k) => manager.requiredSliders.contains(k.key),
                   ),
                 ),
-                if (manager.vaLoan.value)
+                manager: manager,
+              ),
+              ExpansionTile(
+                title: const Text("Show More"),
+                children: [
                   getSwitch(
-                    data: manager.firstTimeHomebuyer,
+                    data: manager.filingJointly,
                     manager: manager,
                     subtitle: null,
                   ),
-                ...getSliders(
-                  context: context,
-                  sliders: Map.fromEntries(
-                    manager.sliders.entries.where(
-                      (k) => !manager.requiredSliders.contains(k.key),
+                  getRadio(
+                    data: manager.investmentTaxRate,
+                    manager: manager,
+                  ),
+                  getRadio(
+                    data: manager.marginalTaxRate,
+                    manager: manager,
+                  ),
+                  getSwitch(
+                    data: manager.vaLoan,
+                    manager: manager,
+                    subtitle: Consumer<RentVsBuyManager>(
+                      builder: (context, value, child) {
+                        final vaFundingFee = value.result?["vaFundingFee"].data
+                            .map((i) => i as double)
+                            .toList()[0];
+                        if (vaFundingFee == null || vaFundingFee < 1.00) {
+                          return const SizedBox.shrink();
+                        }
+                        return Text(
+                          "(${NumberFormat.simpleCurrency().format(vaFundingFee)})",
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(fontStyle: FontStyle.italic),
+                        );
+                      },
                     ),
                   ),
-                  manager: manager,
-                )
-              ],
-            ),
-          ],
+                  if (manager.vaLoan.value)
+                    getSwitch(
+                      data: manager.firstTimeHomebuyer,
+                      manager: manager,
+                      subtitle: null,
+                    ),
+                  ...getSliders(
+                    context: context,
+                    sliders: Map.fromEntries(
+                      manager.sliders.entries.where(
+                        (k) => !manager.requiredSliders.contains(k.key),
+                      ),
+                    ),
+                    manager: manager,
+                  )
+                ],
+              ),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        child: Row(
-          children: getBottomNavigationBarChildren(),
+        bottomNavigationBar: BottomAppBar(
+          child: Row(
+            children: getBottomNavigationBarChildren(),
+          ),
         ),
       ),
     );

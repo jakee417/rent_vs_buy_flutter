@@ -13,6 +13,7 @@ import 'package:rent_vs_buy/switch_data.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:string_validator/string_validator.dart';
 import 'package:undo/undo.dart';
+import 'package:http/http.dart' as http;
 import 'chart.dart';
 import 'utils.dart';
 
@@ -408,16 +409,37 @@ class RentVsBuyManager extends ChangeNotifier {
   VoidCallback? copyUriClosure(BuildContext context) {
     void copyUri() async {
       final uri = toUri();
-      await Clipboard.setData(
-              ClipboardData(text: Uri.base.toString() + uri.toString()))
-          .then(
-        (_) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("URL copied to clipboard")));
-          }
-        },
-      );
+      final fullUrl = Uri.base.toString() + uri.toString();
+
+      try {
+        // Create shortened URL using TinyURL API
+        final response = await http.get(
+          Uri.parse(
+              'https://tinyurl.com/api-create.php?url=${Uri.encodeComponent(fullUrl)}'),
+        );
+
+        if (response.statusCode == 200) {
+          final shortenedUrl = response.body;
+          await Clipboard.setData(ClipboardData(text: shortenedUrl));
+        } else {
+          // Fallback to original URL if shortening fails
+          await Clipboard.setData(ClipboardData(text: fullUrl));
+        }
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("URL copied to clipboard")),
+          );
+        }
+      } catch (e) {
+        // Fallback to original URL if there's an error
+        await Clipboard.setData(ClipboardData(text: fullUrl));
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("URL copied to clipboard")),
+          );
+        }
+      }
     }
 
     return copyUri;

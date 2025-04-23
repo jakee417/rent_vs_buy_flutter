@@ -332,6 +332,10 @@ class RentVsBuyManager extends ChangeNotifier {
             investmentTaxRate.value;
     marginalTaxRate.value =
         await preferences.getDouble("marginalTaxRate") ?? marginalTaxRate.value;
+    vaLoan.value = await preferences.getBool("vaLoan") ?? vaLoan.value;
+    firstTimeHomebuyer.value =
+        await preferences.getBool("firstTimeHomebuyer") ??
+            firstTimeHomebuyer.value;
     for (int i = 0; i < sliders.length; i++) {
       String key = sliders.keys.elementAt(i);
       final data = await preferences.getDouble(key);

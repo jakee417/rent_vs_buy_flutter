@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:undo/undo.dart';
 import 'chart.dart';
+import 'refinance_calculations.dart';
 import 'refinance_manager.dart';
 import 'thumb_shape.dart';
 import 'rent_vs_buy_manager.dart';
@@ -187,7 +188,7 @@ New Loan:
   - APR (with fees): ${manager.calculateNewLoanAPR().toStringAsFixed(3)}%
   - Monthly Savings: ${formatter.format(monthlySavings)}
   - Upfront Costs: ${formatter.format(totalUpfront)}
-  ${breakEven > 0 ? '- Break-Even: $breakEven months' : ''}
+  - Break-Even: $breakEven months
   - Opportunity Cost: ${formatter.format(opportunityCost)}
 """;
     
@@ -1073,6 +1074,22 @@ class _ResultsSection extends StatelessWidget {
               valueColor: totalSavings > 0 ? Colors.green : Colors.red,
               description: 'The total amount of interest you will save (or pay extra if negative) over the life of the loan, including all costs and opportunity costs.',
             ),
+            const SizedBox(height: 16),
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => MonthlyBreakdownDialog(manager: manager),
+                  );
+                },
+                icon: const Icon(Icons.table_chart),
+                label: const Text('See Breakdown'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            ),
           ],
         ),
       ),
@@ -1446,6 +1463,118 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
         Icons.auto_graph_sharp,
         size: 25.0,
         semanticLabel: "See graph of marginal values.",
+      ),
+    );
+  }
+}
+
+// Widget to display month-by-month breakdown
+class MonthlyBreakdownDialog extends StatelessWidget {
+  final RefinanceManager manager;
+
+  const MonthlyBreakdownDialog({super.key, required this.manager});
+
+  @override
+  Widget build(BuildContext context) {
+    final breakdown = RefinanceCalculations.calculateMonthlyBreakdown(
+      remainingBalance: manager.remainingBalance,
+      remainingTermMonths: manager.remainingTermMonths,
+      currentInterestRate: manager.currentInterestRate,
+      newLoanTermYears: manager.newLoanTermYears,
+      newInterestRate: manager.newInterestRate,
+      points: manager.points,
+      costsAndFees: manager.costsAndFees,
+      cashOutAmount: manager.cashOutAmount,
+      additionalPrincipalPayment: manager.additionalPrincipalPayment,
+      financeCosts: manager.financeCosts,
+      investmentReturnRate: manager.investmentReturnRate,
+      includeOpportunityCost: manager.includeOpportunityCost,
+    );
+
+    final currencyFormat = NumberFormat.simpleCurrency();
+
+    return Dialog(
+      child: Container(
+        constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 800),
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Month-by-Month Breakdown',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            // Table
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      Theme.of(context).colorScheme.primaryContainer,
+                    ),
+                    columnSpacing: 16,
+                    columns: const [
+                      DataColumn(label: Text('Month', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('Current\nPayment', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('Current\nBalance', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('New\nPayment', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('New\nBalance', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('Monthly\nSavings', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('Cumulative\nSavings', style: TextStyle(fontWeight: FontWeight.bold))),
+                    ],
+                    rows: breakdown.map((month) {
+                      final isCumulativePositive = month.cumulativeSavings >= 0;
+                      final isMonthlySavingsPositive = month.monthlySavings >= 0;
+                      
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(month.month.toString())),
+                          DataCell(Text(currencyFormat.format(month.currentLoanPayment))),
+                          DataCell(Text(currencyFormat.format(month.currentLoanBalance))),
+                          DataCell(Text(currencyFormat.format(month.newLoanPayment))),
+                          DataCell(Text(currencyFormat.format(month.newLoanBalance))),
+                          DataCell(
+                            Text(
+                              currencyFormat.format(month.monthlySavings),
+                              style: TextStyle(
+                                color: isMonthlySavingsPositive ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          DataCell(
+                            Text(
+                              currencyFormat.format(month.cumulativeSavings),
+                              style: TextStyle(
+                                color: isCumulativePositive ? Colors.green : Colors.red,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

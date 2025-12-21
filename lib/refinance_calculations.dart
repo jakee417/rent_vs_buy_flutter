@@ -4,6 +4,35 @@ import 'chart.dart';
 import 'refinance_manager.dart';
 import 'utils.dart';
 
+/// Represents a single month in the refinance comparison breakdown
+class MonthlyBreakdown {
+  final int month;
+  final double currentLoanBalance;
+  final double currentLoanPayment;
+  final double currentLoanInterest;
+  final double currentLoanPrincipal;
+  final double newLoanBalance;
+  final double newLoanPayment;
+  final double newLoanInterest;
+  final double newLoanPrincipal;
+  final double monthlySavings;
+  final double cumulativeSavings;
+
+  MonthlyBreakdown({
+    required this.month,
+    required this.currentLoanBalance,
+    required this.currentLoanPayment,
+    required this.currentLoanInterest,
+    required this.currentLoanPrincipal,
+    required this.newLoanBalance,
+    required this.newLoanPayment,
+    required this.newLoanInterest,
+    required this.newLoanPrincipal,
+    required this.monthlySavings,
+    required this.cumulativeSavings,
+  });
+}
+
 /// Static calculation methods for refinance analysis
 class RefinanceCalculations {
   // Static helper to calculate monthly payment
@@ -389,5 +418,118 @@ class RefinanceCalculations {
       maxX: max,
       length: spots.length,
     );
+  }
+
+  /// Calculate month-by-month breakdown comparing current loan vs refinance
+  static List<MonthlyBreakdown> calculateMonthlyBreakdown({
+    required double remainingBalance,
+    required int remainingTermMonths,
+    required double currentInterestRate,
+    required int newLoanTermYears,
+    required double newInterestRate,
+    required double points,
+    required double costsAndFees,
+    required double cashOutAmount,
+    required double additionalPrincipalPayment,
+    required bool financeCosts,
+    required double investmentReturnRate,
+    required bool includeOpportunityCost,
+  }) {
+    final List<MonthlyBreakdown> breakdown = [];
+    
+    // Calculate monthly payments
+    final currentMonthlyPayment = calculateMonthlyPayment(
+      principal: remainingBalance,
+      annualInterestRate: currentInterestRate,
+      termMonths: remainingTermMonths,
+    );
+    
+    final newLoanAmount = calculateNewLoanAmount(
+      remainingBalance: remainingBalance,
+      cashOutAmount: cashOutAmount,
+      costsAndFees: costsAndFees,
+      additionalPrincipalPayment: additionalPrincipalPayment,
+      financeCosts: financeCosts,
+    );
+    
+    final newLoanTermMonths = newLoanTermYears * 12;
+    final newMonthlyPayment = calculateMonthlyPayment(
+      principal: newLoanAmount,
+      annualInterestRate: newInterestRate,
+      termMonths: newLoanTermMonths,
+    );
+    
+    // Calculate upfront costs
+    final upfrontCosts = calculateUpfrontCosts(
+      remainingBalance: remainingBalance,
+      points: points,
+      costsAndFees: costsAndFees,
+      additionalPrincipalPayment: additionalPrincipalPayment,
+      financeCosts: financeCosts,
+    );
+    
+    // Initialize balances
+    double currentBalance = remainingBalance;
+    double newBalance = newLoanAmount;
+    double cumulativeSavings = -upfrontCosts + cashOutAmount; // Start with cash out minus upfront costs
+    
+    final currentMonthlyRate = currentInterestRate / 100 / 12;
+    final newMonthlyRate = newInterestRate / 100 / 12;
+    
+    // Calculate month-by-month for the longer of the two loans
+    final maxMonths = math.max(remainingTermMonths, newLoanTermMonths);
+    
+    for (int month = 1; month <= maxMonths; month++) {
+      // Current loan calculations
+      double currentInterestPayment = 0;
+      double currentPrincipalPayment = 0;
+      double currentPayment = 0;
+      
+      if (month <= remainingTermMonths && currentBalance > 0) {
+        currentInterestPayment = currentBalance * currentMonthlyRate;
+        currentPrincipalPayment = currentMonthlyPayment - currentInterestPayment;
+        currentPayment = currentMonthlyPayment;
+        currentBalance = math.max(0, currentBalance - currentPrincipalPayment);
+      }
+      
+      // New loan calculations
+      double newInterestPayment = 0;
+      double newPrincipalPayment = 0;
+      double newPayment = 0;
+      
+      if (month <= newLoanTermMonths && newBalance > 0) {
+        newInterestPayment = newBalance * newMonthlyRate;
+        newPrincipalPayment = newMonthlyPayment - newInterestPayment;
+        newPayment = newMonthlyPayment;
+        newBalance = math.max(0, newBalance - newPrincipalPayment);
+      }
+      
+      // Calculate savings for this month
+      final monthlySavings = currentPayment - newPayment;
+      cumulativeSavings += monthlySavings;
+      
+      // Add opportunity cost if enabled (monthly impact)
+      if (includeOpportunityCost && upfrontCosts > 0) {
+        final monthlyInvestmentRate = investmentReturnRate / 100 / 12;
+        final opportunityCostThisMonth = upfrontCosts * monthlyInvestmentRate * math.pow(1 + monthlyInvestmentRate, month - 1);
+        cumulativeSavings -= opportunityCostThisMonth;
+      }
+      
+      breakdown.add(MonthlyBreakdown(
+        month: month,
+        currentLoanBalance: currentBalance,
+        currentLoanPayment: currentPayment,
+        currentLoanInterest: currentInterestPayment,
+        currentLoanPrincipal: currentPrincipalPayment,
+        newLoanBalance: newBalance,
+        newLoanPayment: newPayment,
+        newLoanInterest: newInterestPayment,
+        newLoanPrincipal: newPrincipalPayment,
+        monthlySavings: monthlySavings,
+        cumulativeSavings: cumulativeSavings,
+      ));
+    }
+    
+    return breakdown;
   }
 }

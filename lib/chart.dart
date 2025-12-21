@@ -48,9 +48,11 @@ class ChartWidget extends StatefulWidget {
     super.key,
     required this.chartData,
     required this.title,
+    this.description,
   });
   final String title;
   final ChartData chartData;
+  final String? description;
   final Color betweenColor = Colors.red.withOpacity(0.5);
 
   @override
@@ -186,7 +188,7 @@ class _ChartWidget extends State<ChartWidget> {
                     children: <Widget>[
                       const Spacer(),
                       const Text(
-                        "Rent vs. Buy Chart",
+                        "Marginal Dependence Chart",
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                         ),
@@ -194,7 +196,8 @@ class _ChartWidget extends State<ChartWidget> {
                       ),
                       const Spacer(),
                       Text(
-                        "This chart shows the Rent vs. Buy tradeoff for various values of ${widget.title.toLowerCase()}.\n\n Positive values indicate buying is a better option. Negative values indicate renting is a better option.",
+                        widget.description ??
+                            "This chart shows the Rent vs. Buy tradeoff for various values of ${widget.title.toLowerCase()}.\n\n Positive values indicate buying is a better option. Negative values indicate renting is a better option.",
                         textAlign: TextAlign.center,
                       ),
                       const Spacer(),

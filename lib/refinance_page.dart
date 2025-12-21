@@ -1229,6 +1229,7 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
                 divisions: widget.divisions,
                 manager: manager,
               ),
+              description: "This chart shows how ${widget.label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
             ),
           ),
         );
@@ -1353,6 +1354,7 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
                 divisions: widget.max - widget.min,
                 manager: manager,
               ),
+              description: "This chart shows how ${widget.label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
             ),
           ),
         );

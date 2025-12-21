@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'package:undo/undo.dart';
 import 'refinance_manager.dart';
 
 class RefinancePage extends StatelessWidget {
@@ -58,46 +59,65 @@ class RefinanceView extends StatelessWidget {
   Widget _buildBottomBar(BuildContext context) {
     return Consumer<RefinanceManager>(
       builder: (context, manager, child) {
-        final totalSavings = manager.calculateTotalCostDifference();
-        final isAdvantageous = manager.isRefinanceAdvantageous();
+        final newMonthlyPayment = manager.calculateNewMonthlyPayment();
         final formatter = NumberFormat.simpleCurrency();
         
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            border: Border(
-              top: BorderSide(
-                color: Theme.of(context).colorScheme.outline,
-                width: 1,
-              ),
-            ),
-          ),
+        return BottomAppBar(
           child: Row(
             children: [
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Savings: ${formatter.format(totalSavings)}',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: totalSavings > 0 ? Colors.green : Colors.red,
-                      ),
-                    ),
-                    Text(
-                      isAdvantageous ? 'Refinancing is advantageous' : 'Review carefully',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
+              _buildInfoButton(context: context, manager: manager),
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: () {
+                  showModalBottomSheet<void>(
+                    context: context,
+                    builder: (BuildContext context) {
+                      return SizedBox(
+                        height: 250,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          child: Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: <Widget>[
+                                const Spacer(),
+                                const Text(
+                                  "New Monthly Payment",
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 18,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const Spacer(),
+                                Text(
+                                  'This is your estimated monthly payment for the new refinanced loan, including principal and interest. This does not include property taxes, insurance, or HOA fees.\n\nNew payment: ${formatter.format(newMonthlyPayment)}\nCurrent payment: ${formatter.format(manager.currentMonthlyPayment)}\nMonthly difference: ${formatter.format(manager.calculateMonthlySavings())}',
+                                  textAlign: TextAlign.center,
+                                ),
+                                const Spacer(),
+                                ElevatedButton(
+                                  child: const Text("Done"),
+                                  onPressed: () => Navigator.pop(context),
+                                ),
+                                const Spacer(),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                child: Text(
+                  '${NumberFormat.simpleCurrency(decimalDigits: 0).format(newMonthlyPayment)} / mo',
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
+              const Spacer(),
               ElevatedButton(
                 onPressed: !manager.changes.canUndo
                     ? null
@@ -107,15 +127,14 @@ class RefinanceView extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   shape: const CircleBorder(),
                   padding: EdgeInsets.zero,
-                  fixedSize: const Size(40, 40),
+                  fixedSize: const Size(10, 10),
                 ),
                 child: const Icon(
                   Icons.undo,
-                  size: 20.0,
+                  size: 25.0,
                   semanticLabel: "Undo the last action.",
                 ),
               ),
-              const SizedBox(width: 8),
               ElevatedButton(
                 onPressed: !manager.changes.canRedo
                     ? null
@@ -125,11 +144,11 @@ class RefinanceView extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   shape: const CircleBorder(),
                   padding: EdgeInsets.zero,
-                  fixedSize: const Size(40, 40),
+                  fixedSize: const Size(10, 10),
                 ),
                 child: const Icon(
                   Icons.redo,
-                  size: 20.0,
+                  size: 25.0,
                   semanticLabel: "Redo the last action.",
                 ),
               ),
@@ -137,6 +156,92 @@ class RefinanceView extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildInfoButton({
+    required BuildContext context,
+    required RefinanceManager manager,
+  }) {
+    final formatter = NumberFormat.simpleCurrency();
+    final totalSavings = manager.calculateTotalCostDifference();
+    final monthlySavings = manager.calculateMonthlySavings();
+    final breakEven = manager.calculateBreakEvenMonths();
+    final totalUpfront = manager.calculateTotalUpfrontCosts();
+    final opportunityCost = manager.calculateOpportunityCost();
+    
+    final description = """Refinancing from ${manager.currentInterestRate.toStringAsFixed(2)}% to ${manager.newInterestRate.toStringAsFixed(2)}%:
+
+Current Loan:
+  - Remaining Balance: ${formatter.format(manager.remainingBalance)}
+  - Monthly Payment: ${formatter.format(manager.currentMonthlyPayment)}
+  - Remaining Term: ${manager.remainingTermMonths} months
+
+New Loan:
+  - New Loan Amount: ${formatter.format(manager.calculateNewLoanAmount())}
+  - New Monthly Payment: ${formatter.format(manager.calculateNewMonthlyPayment())}
+  - Monthly Savings: ${formatter.format(monthlySavings)}
+  - Upfront Costs: ${formatter.format(totalUpfront)}
+  ${breakEven > 0 ? '- Break-Even: $breakEven months' : ''}
+  - Opportunity Cost: ${formatter.format(opportunityCost)}
+""";
+    
+    final bottomLine = "Total Savings: ${formatter.format(totalSavings)} (${totalSavings > 0 ? "benefit" : "loss"})";
+    
+    return TextButton(
+      onPressed: () {
+        showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          builder: (BuildContext context) {
+            return SizedBox(
+              height: 500,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Spacer(),
+                      const Text(
+                        "Refinance Analysis",
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      Text(
+                        description,
+                        textAlign: TextAlign.left,
+                      ),
+                      Text(
+                        bottomLine,
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      ElevatedButton(
+                        child: const Text("Done"),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: Text(
+        NumberFormat.simpleCurrency(decimalDigits: 0).format(totalSavings),
+        style: TextStyle(
+          fontSize: 26,
+          fontWeight: FontWeight.bold,
+          color: totalSavings > 0.0 ? Colors.green : Colors.red,
+        ),
+      ),
     );
   }
 }
@@ -151,19 +256,90 @@ class _CurrentLoanSection extends StatefulWidget {
 class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
   late TextEditingController _balanceController;
   late TextEditingController _paymentController;
+  double? _balanceOldValue;
+  double? _paymentOldValue;
+  late FocusNode _balanceFocusNode;
+  late FocusNode _paymentFocusNode;
 
   @override
   void initState() {
     super.initState();
     _balanceController = TextEditingController();
     _paymentController = TextEditingController();
+    _balanceFocusNode = FocusNode();
+    _paymentFocusNode = FocusNode();
+    
+    _balanceFocusNode.addListener(_onBalanceFocusChange);
+    _paymentFocusNode.addListener(_onPaymentFocusChange);
   }
 
   @override
   void dispose() {
+    _balanceFocusNode.removeListener(_onBalanceFocusChange);
+    _paymentFocusNode.removeListener(_onPaymentFocusChange);
     _balanceController.dispose();
     _paymentController.dispose();
+    _balanceFocusNode.dispose();
+    _paymentFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onBalanceFocusChange() {
+    final manager = context.read<RefinanceManager>();
+    if (_balanceFocusNode.hasFocus) {
+      // Started editing - capture old value
+      _balanceOldValue = manager.remainingBalance;
+    } else {
+      // Finished editing - add undo change if value changed
+      if (_balanceOldValue != null && _balanceOldValue != manager.remainingBalance) {
+        final capturedOldValue = _balanceOldValue!;
+        final capturedNewValue = manager.remainingBalance;
+        manager.changes.add(
+          Change(
+            capturedOldValue,
+            () {
+              manager.remainingBalance = capturedNewValue;
+              _balanceController.text = capturedNewValue.toString();
+            },
+            (old) {
+              manager.remainingBalance = old;
+              _balanceController.text = old.toString();
+            },
+          ),
+        );
+        manager.notifyListeners();
+      }
+      _balanceOldValue = null;
+    }
+  }
+
+  void _onPaymentFocusChange() {
+    final manager = context.read<RefinanceManager>();
+    if (_paymentFocusNode.hasFocus) {
+      // Started editing - capture old value
+      _paymentOldValue = manager.currentMonthlyPayment;
+    } else {
+      // Finished editing - add undo change if value changed
+      if (_paymentOldValue != null && _paymentOldValue != manager.currentMonthlyPayment) {
+        final capturedOldValue = _paymentOldValue!;
+        final capturedNewValue = manager.currentMonthlyPayment;
+        manager.changes.add(
+          Change(
+            capturedOldValue,
+            () {
+              manager.currentMonthlyPayment = capturedNewValue;
+              _paymentController.text = capturedNewValue.toString();
+            },
+            (old) {
+              manager.currentMonthlyPayment = old;
+              _paymentController.text = old.toString();
+            },
+          ),
+        );
+        manager.notifyListeners();
+      }
+      _paymentOldValue = null;
+    }
   }
 
   @override
@@ -199,11 +375,13 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               context: context,
               label: 'Remaining Balance',
               controller: _balanceController,
+              focusNode: _balanceFocusNode,
               onChanged: (value) {
                 final cleanValue = value.replaceAll(',', '').replaceAll('\$', '').trim();
                 final parsed = double.tryParse(cleanValue);
                 if (parsed != null && parsed >= 0) {
-                  context.read<RefinanceManager>().remainingBalance = parsed;
+                  final manager = context.read<RefinanceManager>();
+                  manager.remainingBalance = parsed;
                 }
               },
               prefix: '\$',
@@ -214,18 +392,20 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               context: context,
               label: 'Current Monthly Payment',
               controller: _paymentController,
+              focusNode: _paymentFocusNode,
               onChanged: (value) {
                 final cleanValue = value.replaceAll(',', '').replaceAll('\$', '').trim();
                 final parsed = double.tryParse(cleanValue);
                 if (parsed != null && parsed >= 0) {
-                  context.read<RefinanceManager>().currentMonthlyPayment = parsed;
+                  final manager = context.read<RefinanceManager>();
+                  manager.currentMonthlyPayment = parsed;
                 }
               },
               prefix: '\$',
               description: 'Your current monthly mortgage payment including principal and interest. Do not include property taxes, insurance, or HOA fees.',
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
               label: 'Current Interest Rate',
               value: context.watch<RefinanceManager>().currentInterestRate,
@@ -238,7 +418,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               description: 'The annual interest rate on your current mortgage loan. This is the APR (Annual Percentage Rate) on your existing loan.',
             ),
             const SizedBox(height: 12),
-            _buildIntInputField(
+            _buildIntInputFieldWithUndo(
               context: context,
               label: 'Remaining Term (months)',
               value: context.watch<RefinanceManager>().remainingTermMonths,
@@ -258,6 +438,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required BuildContext context,
     required String label,
     required TextEditingController controller,
+    required FocusNode focusNode,
     required Function(String) onChanged,
     String? prefix,
     String? description,
@@ -276,6 +457,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
         const SizedBox(height: 8),
         TextField(
           controller: controller,
+          focusNode: focusNode,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             prefixText: prefix,
@@ -288,7 +470,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     );
   }
 
-  Widget _buildInputField({
+  Widget _buildInputFieldWithUndo({
     required BuildContext context,
     required String label,
     required double value,
@@ -300,38 +482,25 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     int divisions = 100,
     String? description,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (description != null)
-              _buildInfoButton(
-                context: context,
-                title: label,
-                description: description,
-              )
-            else
-              Text(label, style: const TextStyle(fontSize: 20)),
-            Text(
-              '${prefix ?? ''}${value.toStringAsFixed(prefix != null ? 0 : 2)}${suffix ?? ''}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        Slider(
-          value: value.clamp(min, max),
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
-        ),
-      ],
+    return _UndoableDoubleSlider(
+      label: label,
+      value: value,
+      onChanged: onChanged,
+      prefix: prefix,
+      suffix: suffix,
+      min: min,
+      max: max,
+      divisions: divisions,
+      description: description,
+      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
+        context: ctx,
+        title: title,
+        description: desc,
+      ) : null,
     );
   }
 
-  Widget _buildIntInputField({
+  Widget _buildIntInputFieldWithUndo({
     required BuildContext context,
     required String label,
     required int value,
@@ -340,34 +509,18 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required int max,
     String? description,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (description != null)
-              _buildInfoButton(
-                context: context,
-                title: label,
-                description: description,
-              )
-            else
-              Text(label, style: const TextStyle(fontSize: 20)),
-            Text(
-              value.toString(),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        Slider(
-          value: value.toDouble().clamp(min.toDouble(), max.toDouble()),
-          min: min.toDouble(),
-          max: max.toDouble(),
-          divisions: max - min,
-          onChanged: (v) => onChanged(v.round()),
-        ),
-      ],
+    return _UndoableIntSlider(
+      label: label,
+      value: value,
+      onChanged: onChanged,
+      min: min,
+      max: max,
+      description: description,
+      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
+        context: ctx,
+        title: title,
+        description: desc,
+      ) : null,
     );
   }
 
@@ -438,6 +591,8 @@ class _NewLoanSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final manager = context.read<RefinanceManager>();
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -449,23 +604,23 @@ class _NewLoanSection extends StatelessWidget {
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
-            _buildIntInputField(
+            _buildIntInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'New Loan Term (years)',
               value: context.watch<RefinanceManager>().newLoanTermYears,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().newLoanTermYears = value,
+              onChanged: (value) => manager.newLoanTermYears = value,
               min: 10,
               max: 30,
               description: 'The length of the new mortgage in years. Common terms are 15 or 30 years. Shorter terms have higher monthly payments but lower total interest costs.',
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'New Interest Rate',
               value: context.watch<RefinanceManager>().newInterestRate,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().newInterestRate = value,
+              onChanged: (value) => manager.newInterestRate = value,
               suffix: '%',
               min: 0.1,
               max: 20.0,
@@ -473,12 +628,12 @@ class _NewLoanSection extends StatelessWidget {
               description: 'The annual interest rate for the new loan. Refinancing makes sense when this rate is significantly lower than your current rate (typically at least 0.5-1% lower).',
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'Points',
               value: context.watch<RefinanceManager>().points,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().points = value,
+              onChanged: (value) => manager.points = value,
               suffix: '%',
               min: 0.0,
               max: 5.0,
@@ -486,12 +641,12 @@ class _NewLoanSection extends StatelessWidget {
               description: 'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'Costs and Fees',
               value: context.watch<RefinanceManager>().costsAndFees,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().costsAndFees = value,
+              onChanged: (value) => manager.costsAndFees = value,
               prefix: '\$',
               min: 0,
               max: 20000,
@@ -499,24 +654,24 @@ class _NewLoanSection extends StatelessWidget {
               description: 'Closing costs including appraisal, title insurance, origination fees, etc. Typical refinance costs range from 2-5% of the loan amount. You can choose to finance these or pay upfront.',
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'Cash Out Amount',
               value: context.watch<RefinanceManager>().cashOutAmount,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().cashOutAmount = value,
+              onChanged: (value) => manager.cashOutAmount = value,
               prefix: '\$',
               min: 0,
               max: 100000,
               description: 'Additional cash you want to receive when refinancing (cash-out refinance). This amount is added to your new loan balance.',
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'Additional Principal Payment',
               value: context.watch<RefinanceManager>().additionalPrincipalPayment,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().additionalPrincipalPayment = value,
+              onChanged: (value) => manager.additionalPrincipalPayment = value,
               prefix: '\$',
               min: 0,
               max: 100000,
@@ -534,21 +689,54 @@ class _NewLoanSection extends StatelessWidget {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
               value: context.watch<RefinanceManager>().financeCosts,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().financeCosts = value,
+              onChanged: (value) {
+                final oldValue = manager.financeCosts;
+                manager.financeCosts = value;
+                manager.changes.add(
+                  Change(
+                    oldValue,
+                    () => manager.financeCosts = value,
+                    (old) => manager.financeCosts = old,
+                  ),
+                );
+                manager.notifyListeners();
+              },
             ),
             const SizedBox(height: 12),
-            _buildInputField(
+            _buildInputFieldWithUndo(
               context: context,
+              manager: manager,
               label: 'Investment Return Rate (for opportunity cost)',
               value: context.watch<RefinanceManager>().investmentReturnRate,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().investmentReturnRate = value,
+              onChanged: (value) => manager.investmentReturnRate = value,
               suffix: '%',
               min: 0.0,
               max: 20.0,
               divisions: 200,
               description: 'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
+            ),
+            const SizedBox(height: 12),
+            SwitchListTile(
+              title: const Text('Include Opportunity Cost in Total Savings'),
+              subtitle: Text(
+                context.watch<RefinanceManager>().includeOpportunityCost
+                    ? 'Opportunity cost is included in calculations'
+                    : 'Opportunity cost is excluded from calculations',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              value: context.watch<RefinanceManager>().includeOpportunityCost,
+              onChanged: (value) {
+                final oldValue = manager.includeOpportunityCost;
+                manager.includeOpportunityCost = value;
+                manager.changes.add(
+                  Change(
+                    oldValue,
+                    () => manager.includeOpportunityCost = value,
+                    (old) => manager.includeOpportunityCost = old,
+                  ),
+                );
+                manager.notifyListeners();
+              },
             ),
           ],
         ),
@@ -556,8 +744,9 @@ class _NewLoanSection extends StatelessWidget {
     );
   }
 
-  Widget _buildInputField({
+  Widget _buildInputFieldWithUndo({
     required BuildContext context,
+    required RefinanceManager manager,
     required String label,
     required double value,
     required Function(double) onChanged,
@@ -568,39 +757,27 @@ class _NewLoanSection extends StatelessWidget {
     int divisions = 100,
     String? description,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (description != null)
-              _buildInfoButton(
-                context: context,
-                title: label,
-                description: description,
-              )
-            else
-              Text(label, style: const TextStyle(fontSize: 20)),
-            Text(
-              '${prefix ?? ''}${value.toStringAsFixed(prefix != null ? 0 : 2)}${suffix ?? ''}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        Slider(
-          value: value.clamp(min, max),
-          min: min,
-          max: max,
-          divisions: divisions,
-          onChanged: onChanged,
-        ),
-      ],
+    return _UndoableDoubleSlider(
+      label: label,
+      value: value,
+      onChanged: onChanged,
+      prefix: prefix,
+      suffix: suffix,
+      min: min,
+      max: max,
+      divisions: divisions,
+      description: description,
+      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
+        context: ctx,
+        title: title,
+        description: desc,
+      ) : null,
     );
   }
 
-  Widget _buildIntInputField({
+  Widget _buildIntInputFieldWithUndo({
     required BuildContext context,
+    required RefinanceManager manager,
     required String label,
     required int value,
     required Function(int) onChanged,
@@ -608,36 +785,21 @@ class _NewLoanSection extends StatelessWidget {
     required int max,
     String? description,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            if (description != null)
-              _buildInfoButton(
-                context: context,
-                title: label,
-                description: description,
-              )
-            else
-              Text(label, style: const TextStyle(fontSize: 20)),
-            Text(
-              value.toString(),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-          ],
-        ),
-        Slider(
-          value: value.toDouble().clamp(min.toDouble(), max.toDouble()),
-          min: min.toDouble(),
-          max: max.toDouble(),
-          divisions: max - min,
-          onChanged: (v) => onChanged(v.round()),
-        ),
-      ],
+    return _UndoableIntSlider(
+      label: label,
+      value: value,
+      onChanged: onChanged,
+      min: min,
+      max: max,
+      description: description,
+      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
+        context: ctx,
+        title: title,
+        description: desc,
+      ) : null,
     );
   }
+
 
   Widget _buildInfoButton({
     required BuildContext context,
@@ -955,5 +1117,162 @@ class _ResultsSection extends StatelessWidget {
       }
     }
     return 'Review the numbers carefully to determine if refinancing makes sense for your situation. Consider factors like how long you plan to stay in the home and your financial goals.';
+  }
+}
+
+// Stateful widget for double sliders with undo/redo support
+class _UndoableDoubleSlider extends StatefulWidget {
+  final String label;
+  final double value;
+  final Function(double) onChanged;
+  final String? prefix;
+  final String? suffix;
+  final double min;
+  final double max;
+  final int divisions;
+  final String? description;
+  final Widget Function(BuildContext, String, String)? buildInfoButton;
+
+  const _UndoableDoubleSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.prefix,
+    this.suffix,
+    required this.min,
+    required this.max,
+    this.divisions = 100,
+    this.description,
+    this.buildInfoButton,
+  });
+
+  @override
+  State<_UndoableDoubleSlider> createState() => _UndoableDoubleSliderState();
+}
+
+class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
+  double? _oldValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            if (widget.description != null && widget.buildInfoButton != null)
+              widget.buildInfoButton!(context, widget.label, widget.description!)
+            else
+              Text(widget.label, style: const TextStyle(fontSize: 20)),
+            Text(
+              '${widget.prefix ?? ''}${widget.value.toStringAsFixed(widget.prefix != null ? 0 : 2)}${widget.suffix ?? ''}',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+        Slider(
+          value: widget.value.clamp(widget.min, widget.max),
+          min: widget.min,
+          max: widget.max,
+          divisions: widget.divisions,
+          onChangeStart: (v) {
+            _oldValue = widget.value;
+          },
+          onChanged: widget.onChanged,
+          onChangeEnd: (newValue) {
+            if (_oldValue != null && _oldValue != newValue) {
+              final manager = context.read<RefinanceManager>();
+              final capturedOldValue = _oldValue!;
+              manager.changes.add(
+                Change(
+                  capturedOldValue,
+                  () => widget.onChanged(newValue),
+                  (old) => widget.onChanged(old),
+                ),
+              );
+              manager.notifyListeners();
+            }
+            _oldValue = null;
+          },
+        ),
+      ],
+    );
+  }
+}
+
+// Stateful widget for int sliders with undo/redo support
+class _UndoableIntSlider extends StatefulWidget {
+  final String label;
+  final int value;
+  final Function(int) onChanged;
+  final int min;
+  final int max;
+  final String? description;
+  final Widget Function(BuildContext, String, String)? buildInfoButton;
+
+  const _UndoableIntSlider({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    required this.min,
+    required this.max,
+    this.description,
+    this.buildInfoButton,
+  });
+
+  @override
+  State<_UndoableIntSlider> createState() => _UndoableIntSliderState();
+}
+
+class _UndoableIntSliderState extends State<_UndoableIntSlider> {
+  int? _oldValue;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            if (widget.description != null && widget.buildInfoButton != null)
+              widget.buildInfoButton!(context, widget.label, widget.description!)
+            else
+              Text(widget.label, style: const TextStyle(fontSize: 20)),
+            Text(
+              widget.value.toString(),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+          ],
+        ),
+        Slider(
+          value: widget.value.toDouble().clamp(widget.min.toDouble(), widget.max.toDouble()),
+          min: widget.min.toDouble(),
+          max: widget.max.toDouble(),
+          divisions: widget.max - widget.min,
+          onChangeStart: (v) {
+            _oldValue = widget.value;
+          },
+          onChanged: (v) => widget.onChanged(v.round()),
+          onChangeEnd: (v) {
+            final newValue = v.round();
+            if (_oldValue != null && _oldValue != newValue) {
+              final manager = context.read<RefinanceManager>();
+              final capturedOldValue = _oldValue!;
+              manager.changes.add(
+                Change(
+                  capturedOldValue,
+                  () => widget.onChanged(newValue),
+                  (old) => widget.onChanged(old),
+                ),
+              );
+              manager.notifyListeners();
+            }
+            _oldValue = null;
+          },
+        ),
+      ],
+    );
   }
 }

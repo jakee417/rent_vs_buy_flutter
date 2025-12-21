@@ -21,6 +21,7 @@ class RefinanceManager extends ChangeNotifier {
   double _additionalPrincipalPayment = 0.0;
   bool _financeCosts = true; // true = finance, false = pay upfront
   double _investmentReturnRate = 7.0; // Annual return rate for opportunity cost
+  bool _includeOpportunityCost = true; // Whether to include opportunity cost in total savings
 
   // Getters for current loan
   double get remainingBalance => _remainingBalance;
@@ -37,6 +38,7 @@ class RefinanceManager extends ChangeNotifier {
   double get additionalPrincipalPayment => _additionalPrincipalPayment;
   bool get financeCosts => _financeCosts;
   double get investmentReturnRate => _investmentReturnRate;
+  bool get includeOpportunityCost => _includeOpportunityCost;
 
   // Setters for current loan
   set remainingBalance(double value) {
@@ -108,6 +110,12 @@ class RefinanceManager extends ChangeNotifier {
 
   set investmentReturnRate(double value) {
     _investmentReturnRate = value;
+    notifyListeners();
+    _saveToPreferences();
+  }
+
+  set includeOpportunityCost(bool value) {
+    _includeOpportunityCost = value;
     notifyListeners();
     _saveToPreferences();
   }
@@ -197,10 +205,11 @@ class RefinanceManager extends ChangeNotifier {
 
   double calculateTotalCostDifference() {
     final currentTotalCost = calculateTotalInterestCurrent() + _remainingBalance;
+    final opportunityCost = _includeOpportunityCost ? calculateOpportunityCost() : 0.0;
     final newTotalCost = calculateTotalInterestNew() +
         calculateNewLoanAmount() +
         calculateTotalUpfrontCosts() +
-        calculateOpportunityCost() -
+        opportunityCost -
         _cashOutAmount;
     return currentTotalCost - newTotalCost;
   }
@@ -239,6 +248,7 @@ class RefinanceManager extends ChangeNotifier {
     _additionalPrincipalPayment = 0.0;
     _financeCosts = true;
     _investmentReturnRate = 7.0;
+    _includeOpportunityCost = true;
     notifyListeners();
     _saveToPreferences();
   }
@@ -257,6 +267,7 @@ class RefinanceManager extends ChangeNotifier {
     await preferences.setDouble('refinance_additionalPrincipalPayment', _additionalPrincipalPayment);
     await preferences.setBool('refinance_financeCosts', _financeCosts);
     await preferences.setDouble('refinance_investmentReturnRate', _investmentReturnRate);
+    await preferences.setBool('refinance_includeOpportunityCost', _includeOpportunityCost);
   }
 
   // Load values from SharedPreferences
@@ -273,6 +284,7 @@ class RefinanceManager extends ChangeNotifier {
     _additionalPrincipalPayment = await preferences.getDouble('refinance_additionalPrincipalPayment') ?? 0.0;
     _financeCosts = await preferences.getBool('refinance_financeCosts') ?? true;
     _investmentReturnRate = await preferences.getDouble('refinance_investmentReturnRate') ?? 7.0;
+    _includeOpportunityCost = await preferences.getBool('refinance_includeOpportunityCost') ?? true;
     notifyListeners();
   }
 }

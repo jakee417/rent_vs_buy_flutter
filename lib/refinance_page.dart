@@ -419,6 +419,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               max: 20.0,
               divisions: 199,
               description: 'The annual interest rate on your current mortgage loan. This is the APR (Annual Percentage Rate) on your existing loan.',
+              typicalValue: '4-6%',
               variableName: 'currentInterestRate',
             ),
             const SizedBox(height: 12),
@@ -431,6 +432,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               min: 12,
               max: 360,
               description: 'The number of months remaining on your current mortgage. For example, if you have 25 years left on a 30-year loan, enter 300 months.',
+              typicalValue: '240-300 months',
               variableName: 'remainingTermMonths',
             ),
           ],
@@ -486,6 +488,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required double max,
     int divisions = 100,
     String? description,
+    String? typicalValue,
     String? variableName,
   }) {
     final manager = context.read<RefinanceManager>();
@@ -503,6 +506,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
         context: ctx,
         title: title,
         description: desc,
+        typicalValue: typicalValue,
       ) : null,
       variableName: variableName,
       manager: manager,
@@ -517,6 +521,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required int min,
     required int max,
     String? description,
+    String? typicalValue,
     String? variableName,
   }) {
     final manager = context.read<RefinanceManager>();
@@ -531,6 +536,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
         context: ctx,
         title: title,
         description: desc,
+        typicalValue: typicalValue,
       ) : null,
       variableName: variableName,
       manager: manager,
@@ -541,6 +547,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required BuildContext context,
     required String title,
     required String description,
+    String? typicalValue,
   }) {
     return TextButton(
       style: TextButton.styleFrom(
@@ -575,6 +582,14 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
                         description,
                         textAlign: TextAlign.center,
                       ),
+                      if (typicalValue != null) ...[
+                        const Spacer(),
+                        Text(
+                          '(typical value is $typicalValue)',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       const Spacer(),
                       ElevatedButton(
                         child: const Text("Done"),
@@ -626,6 +641,7 @@ class _NewLoanSection extends StatelessWidget {
               min: 10,
               max: 30,
               description: 'The length of the new mortgage in years. Common terms are 15 or 30 years. Shorter terms have higher monthly payments but lower total interest costs.',
+              typicalValue: '30 years',
               variableName: 'newLoanTermYears',
             ),
             const SizedBox(height: 12),
@@ -640,6 +656,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 20.0,
               divisions: 199,
               description: 'The annual interest rate for the new loan. Refinancing makes sense when this rate is significantly lower than your current rate (typically at least 0.5-1% lower).',
+              typicalValue: '3-5%',
               variableName: 'newInterestRate',
             ),
             const SizedBox(height: 12),
@@ -654,6 +671,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 5.0,
               divisions: 50,
               description: 'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
+              typicalValue: '0-2%',
               variableName: 'points',
             ),
             const SizedBox(height: 12),
@@ -668,6 +686,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 20000,
               divisions: 200,
               description: 'Closing costs including appraisal, title insurance, origination fees, etc. Typical refinance costs range from 2-5% of the loan amount. You can choose to finance these or pay upfront.',
+              typicalValue: '\$3,000-\$5,000',
               variableName: 'costsAndFees',
             ),
             const SizedBox(height: 12),
@@ -681,6 +700,7 @@ class _NewLoanSection extends StatelessWidget {
               min: 0,
               max: 100000,
               description: 'Additional cash you want to receive when refinancing (cash-out refinance). This amount is added to your new loan balance.',
+              typicalValue: '\$0',
               variableName: 'cashOutAmount',
             ),
             const SizedBox(height: 12),
@@ -695,6 +715,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 500000,
               divisions: 500,
               description: 'Extra principal you pay upfront when refinancing to reduce the new loan amount. This lowers your monthly payment and total interest, but has an opportunity cost since the money could be invested instead.',
+              typicalValue: '\$0',
               variableName: 'additionalPrincipalPayment',
             ),
             const SizedBox(height: 16),
@@ -719,6 +740,7 @@ class _NewLoanSection extends StatelessWidget {
               },
               subtitle: null,
               description: 'Choose whether to finance the closing costs (add them to your loan amount) or pay them upfront. Financing costs increases your loan balance and total interest paid, but reduces upfront cash needed.',
+              typicalValue: 'True - most people finance costs',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -732,6 +754,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 20.0,
               divisions: 200,
               description: 'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
+              typicalValue: '7%',
               variableName: 'investmentReturnRate',
             ),
             const SizedBox(height: 12),
@@ -754,6 +777,7 @@ class _NewLoanSection extends StatelessWidget {
               },
               subtitle: null,
               description: 'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
+              typicalValue: 'True',
             ),
           ],
         ),
@@ -773,6 +797,7 @@ class _NewLoanSection extends StatelessWidget {
     required double max,
     int divisions = 100,
     String? description,
+    String? typicalValue,
     String? variableName,
   }) {
     return _UndoableDoubleSlider(
@@ -789,6 +814,7 @@ class _NewLoanSection extends StatelessWidget {
         context: ctx,
         title: title,
         description: desc,
+        typicalValue: typicalValue,
       ) : null,
       variableName: variableName,
       manager: manager,
@@ -804,6 +830,7 @@ class _NewLoanSection extends StatelessWidget {
     required int min,
     required int max,
     String? description,
+    String? typicalValue,
     String? variableName,
   }) {
     return _UndoableIntSlider(
@@ -817,6 +844,7 @@ class _NewLoanSection extends StatelessWidget {
         context: ctx,
         title: title,
         description: desc,
+        typicalValue: typicalValue,
       ) : null,
       variableName: variableName,
       manager: manager,
@@ -832,6 +860,7 @@ class _NewLoanSection extends StatelessWidget {
     required Function(bool) onChanged,
     String? subtitle,
     String? description,
+    String? typicalValue,
   }) {
     final switchWidget = Switch(
       value: value,
@@ -858,6 +887,7 @@ class _NewLoanSection extends StatelessWidget {
                 context: context,
                 title: title,
                 description: description,
+                typicalValue: typicalValue,
               )
             else
               Text(title, style: const TextStyle(fontSize: 20)),
@@ -885,6 +915,7 @@ class _NewLoanSection extends StatelessWidget {
     required BuildContext context,
     required String title,
     required String description,
+    String? typicalValue,
   }) {
     return TextButton(
       style: TextButton.styleFrom(
@@ -919,6 +950,14 @@ class _NewLoanSection extends StatelessWidget {
                         description,
                         textAlign: TextAlign.center,
                       ),
+                      if (typicalValue != null) ...[
+                        const Spacer(),
+                        Text(
+                          '(typical value is $typicalValue)',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       const Spacer(),
                       ElevatedButton(
                         child: const Text("Done"),
@@ -1115,6 +1154,7 @@ class _ResultsSection extends StatelessWidget {
     required BuildContext context,
     required String title,
     required String description,
+    String? typicalValue,
   }) {
     return TextButton(
       style: TextButton.styleFrom(
@@ -1149,6 +1189,14 @@ class _ResultsSection extends StatelessWidget {
                         description,
                         textAlign: TextAlign.center,
                       ),
+                      if (typicalValue != null) ...[
+                        const Spacer(),
+                        Text(
+                          '(typical value is $typicalValue)',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                       const Spacer(),
                       ElevatedButton(
                         child: const Text("Done"),

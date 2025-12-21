@@ -23,6 +23,15 @@ Vector maximum(Vector a, Vector b) {
   return Vector.fromList(result);
 }
 
+// Helper function for power calculation
+double pow(double base, int exponent) {
+  double result = 1;
+  for (int i = 0; i < exponent; i++) {
+    result *= base;
+  }
+  return result;
+}
+
 class FinanceVector extends Finance {
   Vector fvNper(
       {required num rate,

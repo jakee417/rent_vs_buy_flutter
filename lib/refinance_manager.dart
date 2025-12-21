@@ -1,9 +1,9 @@
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
-import 'package:ml_linalg/linalg.dart';
+import 'package:rent_vs_buy/chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:undo/undo.dart';
-import 'chart.dart';
+import 'refinance_calculations.dart';
 
 class RefinanceManager extends ChangeNotifier {
   final changes = ChangeStack();
@@ -117,34 +117,17 @@ class RefinanceManager extends ChangeNotifier {
 
   // Calculation methods
   double calculateNewLoanAmount() {
-    double loanAmount = _remainingBalance + _cashOutAmount;
-    if (_financeCosts) {
-      loanAmount += _costsAndFees;
-    }
-    // Additional principal payment reduces the loan amount
-    loanAmount -= _additionalPrincipalPayment;
-    return loanAmount;
-  }
-
-  // Static helper to calculate monthly payment
-  static double _calculateMonthlyPayment({
-    required double principal,
-    required double annualInterestRate,
-    required int termMonths,
-  }) {
-    final monthlyRate = annualInterestRate / 100 / 12;
-
-    if (monthlyRate == 0) {
-      return principal / termMonths;
-    }
-
-    return principal *
-        (monthlyRate * pow(1 + monthlyRate, termMonths)) /
-        (pow(1 + monthlyRate, termMonths) - 1);
+    return RefinanceCalculations.calculateNewLoanAmount(
+      remainingBalance: _remainingBalance,
+      cashOutAmount: _cashOutAmount,
+      costsAndFees: _costsAndFees,
+      additionalPrincipalPayment: _additionalPrincipalPayment,
+      financeCosts: _financeCosts,
+    );
   }
 
   double calculateCurrentMonthlyPayment() {
-    return _calculateMonthlyPayment(
+    return RefinanceCalculations.calculateMonthlyPayment(
       principal: _remainingBalance,
       annualInterestRate: _currentInterestRate,
       termMonths: _remainingTermMonths,
@@ -152,11 +135,64 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculateNewMonthlyPayment() {
-    return _calculateMonthlyPayment(
+    return RefinanceCalculations.calculateMonthlyPayment(
       principal: calculateNewLoanAmount(),
       annualInterestRate: _newInterestRate,
       termMonths: _newLoanTermYears * 12,
     );
+  }
+
+  // Calculate the APR (Annual Percentage Rate) for the new loan
+  // APR includes the effect of fees and points on the effective interest rate
+  double calculateNewLoanAPR() {
+    final monthlyPayment = calculateNewMonthlyPayment();
+    final termMonths = _newLoanTermYears * 12;
+    
+    // Calculate the actual amount received (principal minus upfront costs)
+    double amountFinanced = _remainingBalance + _cashOutAmount;
+    if (!_financeCosts) {
+      // If not financing costs, they reduce the amount received
+      amountFinanced -= _costsAndFees;
+    }
+    amountFinanced -= _additionalPrincipalPayment;
+    
+    // If we're not paying any fees upfront, APR equals the interest rate
+    final pointsCost = calculatePointsCost();
+    if (pointsCost == 0 && (_financeCosts || _costsAndFees == 0) && _additionalPrincipalPayment == 0) {
+      return _newInterestRate;
+    }
+    
+    // Use Newton-Raphson method to solve for APR
+    // We need to find the rate where: amountFinanced = monthlyPayment * [(1 - (1 + r)^-n) / r]
+    double apr = _newInterestRate; // Start with nominal rate
+    const maxIterations = 100;
+    const tolerance = 0.0001;
+    
+    for (int i = 0; i < maxIterations; i++) {
+      final monthlyRate = apr / 100 / 12;
+      if (monthlyRate == 0) break;
+      
+      final onePlusR = 1 + monthlyRate;
+      final discountFactor = (1 - math.pow(onePlusR, -termMonths)) / monthlyRate;
+      final pv = monthlyPayment * discountFactor;
+      final error = pv - amountFinanced;
+      
+      if (error.abs() < tolerance) break;
+      
+      // Calculate derivative for Newton-Raphson
+      final dPV = monthlyPayment * (
+        (termMonths * math.pow(onePlusR, -termMonths - 1)) / monthlyRate +
+        (math.pow(onePlusR, -termMonths) - 1) / (monthlyRate * monthlyRate)
+      ) / 12 / 100;
+      
+      apr = apr - error / dPV;
+      
+      // Keep APR in reasonable bounds
+      if (apr < 0) apr = 0.1;
+      if (apr > 50) apr = 50;
+    }
+    
+    return apr;
   }
 
   double calculatePointsCost() {
@@ -164,35 +200,22 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculateTotalUpfrontCosts() {
-    double upfrontCosts = calculatePointsCost();
-    if (!_financeCosts) {
-      upfrontCosts += _costsAndFees;
-    }
-    // Additional principal payment is always paid upfront
-    upfrontCosts += _additionalPrincipalPayment;
-    return upfrontCosts;
+    return RefinanceCalculations.calculateUpfrontCosts(
+      remainingBalance: _remainingBalance,
+      points: _points,
+      costsAndFees: _costsAndFees,
+      additionalPrincipalPayment: _additionalPrincipalPayment,
+      financeCosts: _financeCosts,
+    );
   }
 
   // Calculate opportunity cost of paying upfront costs
   double calculateOpportunityCost() {
-    double upfrontAmount = calculatePointsCost() + _additionalPrincipalPayment;
-    if (!_financeCosts) {
-      upfrontAmount += _costsAndFees;
-    }
-    
-    if (upfrontAmount == 0) {
-      return 0.0;
-    }
-    
-    final monthlyRate = _investmentReturnRate / 100 / 12;
-    final numMonths = _newLoanTermYears * 12;
-    
-    // Future value of upfront costs if invested
-    if (monthlyRate == 0) {
-      return 0.0;
-    }
-    final futureValue = upfrontAmount * pow(1 + monthlyRate, numMonths);
-    return futureValue - upfrontAmount;
+    return RefinanceCalculations.calculateOpportunityCost(
+      upfrontCosts: calculateTotalUpfrontCosts(),
+      investmentReturnRate: _investmentReturnRate,
+      termMonths: _newLoanTermYears * 12,
+    );
   }
 
   double calculateMonthlySavings() {
@@ -208,24 +231,37 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculateTotalInterestCurrent() {
-    return (calculateCurrentMonthlyPayment() * _remainingTermMonths) - _remainingBalance;
+    return RefinanceCalculations.calculateTotalInterest(
+      principal: _remainingBalance,
+      annualInterestRate: _currentInterestRate,
+      termMonths: _remainingTermMonths,
+    );
   }
 
   double calculateTotalInterestNew() {
-    final newPayment = calculateNewMonthlyPayment();
-    final totalPaid = newPayment * _newLoanTermYears * 12;
-    return totalPaid - calculateNewLoanAmount();
+    final newLoanAmount = calculateNewLoanAmount();
+    return RefinanceCalculations.calculateTotalInterest(
+      principal: newLoanAmount,
+      annualInterestRate: _newInterestRate,
+      termMonths: _newLoanTermYears * 12,
+    );
   }
 
   double calculateTotalCostDifference() {
-    final currentTotalCost = calculateTotalInterestCurrent() + _remainingBalance;
-    final opportunityCost = _includeOpportunityCost ? calculateOpportunityCost() : 0.0;
-    final newTotalCost = calculateTotalInterestNew() +
-        calculateNewLoanAmount() +
-        calculateTotalUpfrontCosts() +
-        opportunityCost -
-        _cashOutAmount;
-    return currentTotalCost - newTotalCost;
+    return RefinanceCalculations.calculateTotalCostDifference(
+      remainingBalance: _remainingBalance,
+      remainingTermMonths: _remainingTermMonths,
+      currentInterestRate: _currentInterestRate,
+      newLoanTermYears: _newLoanTermYears,
+      newInterestRate: _newInterestRate,
+      points: _points,
+      costsAndFees: _costsAndFees,
+      cashOutAmount: _cashOutAmount,
+      additionalPrincipalPayment: _additionalPrincipalPayment,
+      financeCosts: _financeCosts,
+      investmentReturnRate: _investmentReturnRate,
+      includeOpportunityCost: _includeOpportunityCost,
+    );
   }
 
   bool isRefinanceAdvantageous() {
@@ -307,245 +343,13 @@ class RefinanceManager extends ChangeNotifier {
     required int divisions,
     required RefinanceManager manager,
   }) {
-    const maxLength = 80;
-    final numPoints = math.min(maxLength, divisions);
-    
-    List<ChartSpot> spots = [];
-    final step = (max - min) / numPoints;
-    
-    for (int i = 0; i <= numPoints; i++) {
-      final gridValue = min + (step * i);
-      
-      // Create a temporary manager with the current value
-      double totalSavings;
-      
-      switch (variableName) {
-        case 'remainingTermMonths':
-          // Calculate what the remaining balance would be at this term
-          final adjustedBalance = _calculateRemainingBalance(
-            currentBalance: manager._remainingBalance,
-            currentTermMonths: manager._remainingTermMonths,
-            annualInterestRate: manager._currentInterestRate,
-            targetTermMonths: gridValue.round(),
-          );
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            remainingTermMonths: gridValue.round(),
-            remainingBalance: adjustedBalance,
-          );
-          break;
-        case 'newLoanTermYears':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            newLoanTermYears: gridValue.round(),
-          );
-          break;
-        case 'newInterestRate':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            newInterestRate: gridValue,
-          );
-          break;
-        case 'points':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            points: gridValue,
-          );
-          break;
-        case 'costsAndFees':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            costsAndFees: gridValue,
-          );
-          break;
-        case 'cashOutAmount':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            cashOutAmount: gridValue,
-          );
-          break;
-        case 'additionalPrincipalPayment':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            additionalPrincipalPayment: gridValue,
-          );
-          break;
-        case 'investmentReturnRate':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            investmentReturnRate: gridValue,
-          );
-          break;
-        default:
-          totalSavings = manager.calculateTotalCostDifference();
-      }
-      
-      spots.add(ChartSpot(index: gridValue, value: totalSavings));
-    }
-    
-    // Rescale values for display
-    var rescaledValues = Vector.fromList(spots.map((i) => i.value).toList());
-    final smallest = rescaledValues.min();
-    final largest = rescaledValues.max();
-    
-    if (smallest != largest) {
-      rescaledValues = rescaledValues.rescale();
-    } else {
-      rescaledValues = Vector.filled(rescaledValues.length, 0.0);
-    }
-    
-    final rescaledIndex = Vector.fromList(spots.map((i) => i.index).toList()).rescale();
-    
-    for (int i = 0; i < spots.length; i++) {
-      spots[i].value = rescaledValues[i];
-      spots[i].index = rescaledIndex[i];
-    }
-    
-    return ChartData(
-      spots: spots,
-      series: "totalSavings",
-      minY: smallest,
-      maxY: largest,
-      minX: min,
-      maxX: max,
-      length: spots.length,
+    return RefinanceCalculations.calculateChart(
+      variableName: variableName,
+      min: min,
+      max: max,
+      divisions: divisions,
+      manager: manager,
     );
   }
-
-  // Calculate what the remaining balance would be at a different point in the loan
-  static double _calculateRemainingBalance({
-    required double currentBalance,
-    required int currentTermMonths,
-    required double annualInterestRate,
-    required int targetTermMonths,
-  }) {
-    // If target term is longer (earlier in the loan), we need to calculate backwards
-    // If target term is shorter (later in the loan), calculate forward
-    
-    if (targetTermMonths == currentTermMonths) {
-      return currentBalance;
-    }
-    
-    final monthlyRate = annualInterestRate / 100 / 12;
-    if (monthlyRate == 0) {
-      // Simple linear amortization if no interest
-      final monthsPassed = currentTermMonths - targetTermMonths;
-      return currentBalance - (monthsPassed * (currentBalance / currentTermMonths));
-    }
-    
-    // Calculate the monthly payment based on current situation
-    final monthlyPayment = _calculateMonthlyPayment(
-      principal: currentBalance,
-      annualInterestRate: annualInterestRate,
-      termMonths: currentTermMonths,
-    );
-    
-    // Calculate remaining balance at target term using standard formula
-    // Remaining balance = P * [(1 + r)^n - (1 + r)^p] / [(1 + r)^n - 1]
-    // Where p = payments made (currentTerm - targetTerm)
-    final monthsPassed = currentTermMonths - targetTermMonths;
-    
-    if (monthsPassed < 0) {
-      // Target term is further out - balance would have been higher
-      // This is going backwards in time, which doesn't make physical sense
-      // Return current balance as best approximation
-      return currentBalance;
-    }
-    
-    // Calculate balance after making payments for monthsPassed months
-    final onePlusR = 1 + monthlyRate;
-    final numerator = currentBalance * math.pow(onePlusR, currentTermMonths) - 
-                     monthlyPayment * ((math.pow(onePlusR, monthsPassed) - 1) / monthlyRate);
-    final denominator = math.pow(onePlusR, currentTermMonths - monthsPassed);
-    
-    return numerator / denominator;
-  }
-
-  static double _calculateTotalSavingsWithValue(
-    RefinanceManager manager, {
-    double? remainingBalance,
-    int? remainingTermMonths,
-    int? newLoanTermYears,
-    double? newInterestRate,
-    double? points,
-    double? costsAndFees,
-    double? cashOutAmount,
-    double? additionalPrincipalPayment,
-    double? investmentReturnRate,
-  }) {
-    // Use provided values or fall back to manager's values
-    final rb = remainingBalance ?? manager._remainingBalance;
-    final rtm = remainingTermMonths ?? manager._remainingTermMonths;
-    final cir = manager._currentInterestRate;
-    final nlty = newLoanTermYears ?? manager._newLoanTermYears;
-    final nir = newInterestRate ?? manager._newInterestRate;
-    final pts = points ?? manager._points;
-    final caf = costsAndFees ?? manager._costsAndFees;
-    final coa = cashOutAmount ?? manager._cashOutAmount;
-    final app = additionalPrincipalPayment ?? manager._additionalPrincipalPayment;
-    final irr = investmentReturnRate ?? manager._investmentReturnRate;
-    
-    // Calculate new loan amount
-    double newLoanAmount = rb + coa;
-    if (manager._financeCosts) {
-      newLoanAmount += caf;
-    }
-    newLoanAmount -= app;
-    
-    // Calculate new monthly payment
-    final numPayments = nlty * 12;
-    final newMonthlyPayment = _calculateMonthlyPayment(
-      principal: newLoanAmount,
-      annualInterestRate: nir,
-      termMonths: numPayments,
-    );
-    
-    // Calculate current monthly payment
-    final currentMonthlyPayment = _calculateMonthlyPayment(
-      principal: rb,
-      annualInterestRate: cir,
-      termMonths: rtm,
-    );
-    
-    // Calculate total interest for current loan
-    final totalInterestCurrent = (currentMonthlyPayment * rtm) - rb;
-    
-    // Calculate total interest for new loan
-    final totalPaidNew = newMonthlyPayment * numPayments;
-    final totalInterestNew = totalPaidNew - newLoanAmount;
-    
-    // Calculate upfront costs
-    final pointsCost = rb * (pts / 100);
-    double upfrontCosts = pointsCost;
-    if (!manager._financeCosts) {
-      upfrontCosts += caf;
-    }
-    upfrontCosts += app;
-    
-    // Calculate opportunity cost
-    double opportunityCost = 0.0;
-    if (manager._includeOpportunityCost && upfrontCosts > 0) {
-      final monthlyRateInv = irr / 100 / 12;
-      if (monthlyRateInv > 0) {
-        final futureValue = upfrontCosts * pow(1 + monthlyRateInv, numPayments);
-        opportunityCost = futureValue - upfrontCosts;
-      }
-    }
-    
-    // Calculate total cost difference
-    final currentTotalCost = totalInterestCurrent + rb;
-    final newTotalCost = totalInterestNew + newLoanAmount + upfrontCosts + opportunityCost - coa;
-    
-    return currentTotalCost - newTotalCost;
-  }
-}
-
-// Helper function for power calculation
-double pow(double base, int exponent) {
-  double result = 1;
-  for (int i = 0; i < exponent; i++) {
-    result *= base;
-  }
-  return result;
 }
 

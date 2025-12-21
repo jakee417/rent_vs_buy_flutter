@@ -183,6 +183,8 @@ Current Loan:
 New Loan:
   - New Loan Amount: ${formatter.format(manager.calculateNewLoanAmount())}
   - New Monthly Payment: ${formatter.format(manager.calculateNewMonthlyPayment())}
+  - Nominal Interest Rate: ${manager.newInterestRate.toStringAsFixed(3)}%
+  - APR (with fees): ${manager.calculateNewLoanAPR().toStringAsFixed(3)}%
   - Monthly Savings: ${formatter.format(monthlySavings)}
   - Upfront Costs: ${formatter.format(totalUpfront)}
   ${breakEven > 0 ? '- Break-Even: $breakEven months' : ''}
@@ -356,7 +358,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               min: 0.1,
               max: 20.0,
               divisions: 199,
-              description: 'The fixed annual interest rate on your current mortgage loan. This is the APR (Annual Percentage Rate) on your existing loan.',
+              description: 'The fixed annual interest rate on your current mortgage loan (not APR). This is the nominal rate used to calculate your monthly payment, excluding fees and points which are handled separately.',
               typicalValue: '4-6%',
             ),
             const SizedBox(height: 12),

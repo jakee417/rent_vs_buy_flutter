@@ -95,7 +95,7 @@ class RefinanceView extends StatelessWidget {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  'This is your estimated monthly payment for the new refinanced loan, including principal and interest. This does not include property taxes, insurance, or HOA fees.\n\nNew payment: ${formatter.format(newMonthlyPayment)}\nCurrent payment: ${formatter.format(manager.currentMonthlyPayment)}\nMonthly difference: ${formatter.format(manager.calculateMonthlySavings())}',
+                                  'This is your estimated monthly payment for the new refinanced loan, including principal and interest. This does not include property taxes, insurance, or HOA fees.\n\nNew payment: ${formatter.format(newMonthlyPayment)}\nCurrent payment: ${formatter.format(manager.calculateCurrentMonthlyPayment())}\nMonthly difference: ${formatter.format(manager.calculateMonthlySavings())}',
                                   textAlign: TextAlign.center,
                                 ),
                                 const Spacer(),
@@ -177,7 +177,7 @@ class RefinanceView extends StatelessWidget {
 
 Current Loan:
   - Remaining Balance: ${formatter.format(manager.remainingBalance)}
-  - Monthly Payment: ${formatter.format(manager.currentMonthlyPayment)}
+  - Monthly Payment: ${formatter.format(manager.calculateCurrentMonthlyPayment())}
   - Remaining Term: ${manager.remainingTermMonths} months
 
 New Loan:
@@ -258,32 +258,23 @@ class _CurrentLoanSection extends StatefulWidget {
 
 class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
   late TextEditingController _balanceController;
-  late TextEditingController _paymentController;
   double? _balanceOldValue;
-  double? _paymentOldValue;
   late FocusNode _balanceFocusNode;
-  late FocusNode _paymentFocusNode;
 
   @override
   void initState() {
     super.initState();
     _balanceController = TextEditingController();
-    _paymentController = TextEditingController();
     _balanceFocusNode = FocusNode();
-    _paymentFocusNode = FocusNode();
     
     _balanceFocusNode.addListener(_onBalanceFocusChange);
-    _paymentFocusNode.addListener(_onPaymentFocusChange);
   }
 
   @override
   void dispose() {
     _balanceFocusNode.removeListener(_onBalanceFocusChange);
-    _paymentFocusNode.removeListener(_onPaymentFocusChange);
     _balanceController.dispose();
-    _paymentController.dispose();
     _balanceFocusNode.dispose();
-    _paymentFocusNode.dispose();
     super.dispose();
   }
 
@@ -310,38 +301,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
             },
           ),
         );
-        manager.notifyListeners();
       }
       _balanceOldValue = null;
-    }
-  }
-
-  void _onPaymentFocusChange() {
-    final manager = context.read<RefinanceManager>();
-    if (_paymentFocusNode.hasFocus) {
-      // Started editing - capture old value
-      _paymentOldValue = manager.currentMonthlyPayment;
-    } else {
-      // Finished editing - add undo change if value changed
-      if (_paymentOldValue != null && _paymentOldValue != manager.currentMonthlyPayment) {
-        final capturedOldValue = _paymentOldValue!;
-        final capturedNewValue = manager.currentMonthlyPayment;
-        manager.changes.add(
-          Change(
-            capturedOldValue,
-            () {
-              manager.currentMonthlyPayment = capturedNewValue;
-              _paymentController.text = capturedNewValue.toString();
-            },
-            (old) {
-              manager.currentMonthlyPayment = old;
-              _paymentController.text = old.toString();
-            },
-          ),
-        );
-        manager.notifyListeners();
-      }
-      _paymentOldValue = null;
     }
   }
 
@@ -354,12 +315,6 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
       final balanceText = manager.remainingBalance.toString();
       if (_balanceController.text != balanceText) {
         _balanceController.text = balanceText;
-      }
-    }
-    if (!_paymentController.selection.isValid) {
-      final paymentText = manager.currentMonthlyPayment.toString();
-      if (_paymentController.text != paymentText) {
-        _paymentController.text = paymentText;
       }
     }
 
@@ -391,23 +346,6 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               description: 'The outstanding principal balance on your current mortgage loan. This is what you still owe, not the original loan amount.',
             ),
             const SizedBox(height: 12),
-            _buildTextInputField(
-              context: context,
-              label: 'Current Monthly Payment',
-              controller: _paymentController,
-              focusNode: _paymentFocusNode,
-              onChanged: (value) {
-                final cleanValue = value.replaceAll(',', '').replaceAll('\$', '').trim();
-                final parsed = double.tryParse(cleanValue);
-                if (parsed != null && parsed >= 0) {
-                  final manager = context.read<RefinanceManager>();
-                  manager.currentMonthlyPayment = parsed;
-                }
-              },
-              prefix: '\$',
-              description: 'Your current monthly mortgage payment including principal and interest. Do not include property taxes, insurance, or HOA fees.',
-            ),
-            const SizedBox(height: 12),
             _buildInputFieldWithUndo(
               context: context,
               label: 'Current Interest Rate',
@@ -418,9 +356,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               min: 0.1,
               max: 20.0,
               divisions: 199,
-              description: 'The annual interest rate on your current mortgage loan. This is the APR (Annual Percentage Rate) on your existing loan.',
+              description: 'The fixed annual interest rate on your current mortgage loan. This is the APR (Annual Percentage Rate) on your existing loan.',
               typicalValue: '4-6%',
-              variableName: 'currentInterestRate',
             ),
             const SizedBox(height: 12),
             _buildIntInputFieldWithUndo(
@@ -431,9 +368,16 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
                   context.read<RefinanceManager>().remainingTermMonths = value,
               min: 12,
               max: 360,
-              description: 'The number of months remaining on your current mortgage. For example, if you have 25 years left on a 30-year loan, enter 300 months.',
+              description: 'The number of months remaining on your current mortgage. This also represents WHEN you choose to refinance - waiting longer means paying down more principal but paying more interest. The chart shows how timing affects total savings.',
               typicalValue: '240-300 months',
               variableName: 'remainingTermMonths',
+            ),
+            const SizedBox(height: 12),
+            _buildReadOnlyField(
+              context: context,
+              label: 'Current Monthly Payment',
+              value: NumberFormat.simpleCurrency().format(manager.calculateCurrentMonthlyPayment()),
+              description: 'Your current monthly mortgage payment including principal and interest, calculated from your remaining balance, interest rate, and term. Does not include property taxes, insurance, or HOA fees.',
             ),
           ],
         ),
@@ -472,6 +416,41 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           ),
           onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReadOnlyField({
+    required BuildContext context,
+    required String label,
+    required String value,
+    String? description,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (description != null)
+          _buildInfoButton(
+            context: context,
+            title: label,
+            description: description,
+          )
+        else
+          Text(label, style: const TextStyle(fontSize: 20)),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.grey.withOpacity(0.1),
+          ),
+          width: double.infinity,
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 16),
+          ),
         ),
       ],
     );
@@ -736,7 +715,6 @@ class _NewLoanSection extends StatelessWidget {
                     (old) => manager.financeCosts = old,
                   ),
                 );
-                manager.notifyListeners();
               },
               subtitle: null,
               description: 'Choose whether to finance the closing costs (add them to your loan amount) or pay them upfront. Financing costs increases your loan balance and total interest paid, but reduces upfront cash needed.',
@@ -773,7 +751,6 @@ class _NewLoanSection extends StatelessWidget {
                     (old) => manager.includeOpportunityCost = old,
                   ),
                 );
-                manager.notifyListeners();
               },
               subtitle: null,
               description: 'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
@@ -1033,7 +1010,7 @@ class _ResultsSection extends StatelessWidget {
               context,
               'New Monthly Payment',
               currencyFormat.format(newMonthlyPayment),
-              description: 'The estimated monthly payment for the new refinanced loan, including principal and interest.',
+              description: 'The estimated monthly payment for the new refinanced loan, including principal and interest. Disregards taxes, insurance, and HOA fees.',
             ),
             _buildResultRow(
               context,
@@ -1301,7 +1278,6 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
                       (old) => widget.onChanged(old),
                     ),
                   );
-                  manager.notifyListeners();
                 }
                 _oldValue = null;
               },
@@ -1426,7 +1402,6 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
                       (old) => widget.onChanged(old),
                     ),
                   );
-                  manager.notifyListeners();
                 }
                 _oldValue = null;
               },

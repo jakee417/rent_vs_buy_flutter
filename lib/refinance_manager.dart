@@ -11,7 +11,6 @@ class RefinanceManager extends ChangeNotifier {
 
   // Current loan properties
   double _remainingBalance = 200000.0;
-  double _currentMonthlyPayment = 1200.0;
   double _currentInterestRate = 4.5;
   int _remainingTermMonths = 240; // 20 years
 
@@ -28,7 +27,6 @@ class RefinanceManager extends ChangeNotifier {
 
   // Getters for current loan
   double get remainingBalance => _remainingBalance;
-  double get currentMonthlyPayment => _currentMonthlyPayment;
   double get currentInterestRate => _currentInterestRate;
   int get remainingTermMonths => _remainingTermMonths;
 
@@ -46,12 +44,6 @@ class RefinanceManager extends ChangeNotifier {
   // Setters for current loan
   set remainingBalance(double value) {
     _remainingBalance = value;
-    notifyListeners();
-    _saveToPreferences();
-  }
-
-  set currentMonthlyPayment(double value) {
-    _currentMonthlyPayment = value;
     notifyListeners();
     _saveToPreferences();
   }
@@ -134,18 +126,37 @@ class RefinanceManager extends ChangeNotifier {
     return loanAmount;
   }
 
-  double calculateNewMonthlyPayment() {
-    final principal = calculateNewLoanAmount();
-    final monthlyRate = _newInterestRate / 100 / 12;
-    final numPayments = _newLoanTermYears * 12;
+  // Static helper to calculate monthly payment
+  static double _calculateMonthlyPayment({
+    required double principal,
+    required double annualInterestRate,
+    required int termMonths,
+  }) {
+    final monthlyRate = annualInterestRate / 100 / 12;
 
     if (monthlyRate == 0) {
-      return principal / numPayments;
+      return principal / termMonths;
     }
 
     return principal *
-        (monthlyRate * pow(1 + monthlyRate, numPayments)) /
-        (pow(1 + monthlyRate, numPayments) - 1);
+        (monthlyRate * pow(1 + monthlyRate, termMonths)) /
+        (pow(1 + monthlyRate, termMonths) - 1);
+  }
+
+  double calculateCurrentMonthlyPayment() {
+    return _calculateMonthlyPayment(
+      principal: _remainingBalance,
+      annualInterestRate: _currentInterestRate,
+      termMonths: _remainingTermMonths,
+    );
+  }
+
+  double calculateNewMonthlyPayment() {
+    return _calculateMonthlyPayment(
+      principal: calculateNewLoanAmount(),
+      annualInterestRate: _newInterestRate,
+      termMonths: _newLoanTermYears * 12,
+    );
   }
 
   double calculatePointsCost() {
@@ -185,7 +196,7 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculateMonthlySavings() {
-    return _currentMonthlyPayment - calculateNewMonthlyPayment();
+    return calculateCurrentMonthlyPayment() - calculateNewMonthlyPayment();
   }
 
   int calculateBreakEvenMonths() {
@@ -197,7 +208,7 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculateTotalInterestCurrent() {
-    return (_currentMonthlyPayment * _remainingTermMonths) - _remainingBalance;
+    return (calculateCurrentMonthlyPayment() * _remainingTermMonths) - _remainingBalance;
   }
 
   double calculateTotalInterestNew() {
@@ -240,7 +251,6 @@ class RefinanceManager extends ChangeNotifier {
 
   void reset() {
     _remainingBalance = 200000.0;
-    _currentMonthlyPayment = 1200.0;
     _currentInterestRate = 4.5;
     _remainingTermMonths = 240;
     _newLoanTermYears = 30;
@@ -259,7 +269,6 @@ class RefinanceManager extends ChangeNotifier {
   // Save all values to SharedPreferences
   void _saveToPreferences() async {
     await preferences.setDouble('refinance_remainingBalance', _remainingBalance);
-    await preferences.setDouble('refinance_currentMonthlyPayment', _currentMonthlyPayment);
     await preferences.setDouble('refinance_currentInterestRate', _currentInterestRate);
     await preferences.setInt('refinance_remainingTermMonths', _remainingTermMonths);
     await preferences.setInt('refinance_newLoanTermYears', _newLoanTermYears);
@@ -276,7 +285,6 @@ class RefinanceManager extends ChangeNotifier {
   // Load values from SharedPreferences
   Future<void> loadFromPreferences() async {
     _remainingBalance = await preferences.getDouble('refinance_remainingBalance') ?? 200000.0;
-    _currentMonthlyPayment = await preferences.getDouble('refinance_currentMonthlyPayment') ?? 1200.0;
     _currentInterestRate = await preferences.getDouble('refinance_currentInterestRate') ?? 4.5;
     _remainingTermMonths = await preferences.getInt('refinance_remainingTermMonths') ?? 240;
     _newLoanTermYears = await preferences.getInt('refinance_newLoanTermYears') ?? 30;
@@ -312,16 +320,18 @@ class RefinanceManager extends ChangeNotifier {
       double totalSavings;
       
       switch (variableName) {
-        case 'currentInterestRate':
-          totalSavings = _calculateTotalSavingsWithValue(
-            manager,
-            currentInterestRate: gridValue,
-          );
-          break;
         case 'remainingTermMonths':
+          // Calculate what the remaining balance would be at this term
+          final adjustedBalance = _calculateRemainingBalance(
+            currentBalance: manager._remainingBalance,
+            currentTermMonths: manager._remainingTermMonths,
+            annualInterestRate: manager._currentInterestRate,
+            targetTermMonths: gridValue.round(),
+          );
           totalSavings = _calculateTotalSavingsWithValue(
             manager,
             remainingTermMonths: gridValue.round(),
+            remainingBalance: adjustedBalance,
           );
           break;
         case 'newLoanTermYears':
@@ -402,9 +412,58 @@ class RefinanceManager extends ChangeNotifier {
     );
   }
 
+  // Calculate what the remaining balance would be at a different point in the loan
+  static double _calculateRemainingBalance({
+    required double currentBalance,
+    required int currentTermMonths,
+    required double annualInterestRate,
+    required int targetTermMonths,
+  }) {
+    // If target term is longer (earlier in the loan), we need to calculate backwards
+    // If target term is shorter (later in the loan), calculate forward
+    
+    if (targetTermMonths == currentTermMonths) {
+      return currentBalance;
+    }
+    
+    final monthlyRate = annualInterestRate / 100 / 12;
+    if (monthlyRate == 0) {
+      // Simple linear amortization if no interest
+      final monthsPassed = currentTermMonths - targetTermMonths;
+      return currentBalance - (monthsPassed * (currentBalance / currentTermMonths));
+    }
+    
+    // Calculate the monthly payment based on current situation
+    final monthlyPayment = _calculateMonthlyPayment(
+      principal: currentBalance,
+      annualInterestRate: annualInterestRate,
+      termMonths: currentTermMonths,
+    );
+    
+    // Calculate remaining balance at target term using standard formula
+    // Remaining balance = P * [(1 + r)^n - (1 + r)^p] / [(1 + r)^n - 1]
+    // Where p = payments made (currentTerm - targetTerm)
+    final monthsPassed = currentTermMonths - targetTermMonths;
+    
+    if (monthsPassed < 0) {
+      // Target term is further out - balance would have been higher
+      // This is going backwards in time, which doesn't make physical sense
+      // Return current balance as best approximation
+      return currentBalance;
+    }
+    
+    // Calculate balance after making payments for monthsPassed months
+    final onePlusR = 1 + monthlyRate;
+    final numerator = currentBalance * math.pow(onePlusR, currentTermMonths) - 
+                     monthlyPayment * ((math.pow(onePlusR, monthsPassed) - 1) / monthlyRate);
+    final denominator = math.pow(onePlusR, currentTermMonths - monthsPassed);
+    
+    return numerator / denominator;
+  }
+
   static double _calculateTotalSavingsWithValue(
     RefinanceManager manager, {
-    double? currentInterestRate,
+    double? remainingBalance,
     int? remainingTermMonths,
     int? newLoanTermYears,
     double? newInterestRate,
@@ -415,7 +474,9 @@ class RefinanceManager extends ChangeNotifier {
     double? investmentReturnRate,
   }) {
     // Use provided values or fall back to manager's values
+    final rb = remainingBalance ?? manager._remainingBalance;
     final rtm = remainingTermMonths ?? manager._remainingTermMonths;
+    final cir = manager._currentInterestRate;
     final nlty = newLoanTermYears ?? manager._newLoanTermYears;
     final nir = newInterestRate ?? manager._newInterestRate;
     final pts = points ?? manager._points;
@@ -425,33 +486,36 @@ class RefinanceManager extends ChangeNotifier {
     final irr = investmentReturnRate ?? manager._investmentReturnRate;
     
     // Calculate new loan amount
-    double newLoanAmount = manager._remainingBalance + coa;
+    double newLoanAmount = rb + coa;
     if (manager._financeCosts) {
       newLoanAmount += caf;
     }
     newLoanAmount -= app;
     
     // Calculate new monthly payment
-    final monthlyRate = nir / 100 / 12;
     final numPayments = nlty * 12;
-    double newMonthlyPayment;
-    if (monthlyRate == 0) {
-      newMonthlyPayment = newLoanAmount / numPayments;
-    } else {
-      newMonthlyPayment = newLoanAmount *
-          (monthlyRate * pow(1 + monthlyRate, numPayments)) /
-          (pow(1 + monthlyRate, numPayments) - 1);
-    }
+    final newMonthlyPayment = _calculateMonthlyPayment(
+      principal: newLoanAmount,
+      annualInterestRate: nir,
+      termMonths: numPayments,
+    );
+    
+    // Calculate current monthly payment
+    final currentMonthlyPayment = _calculateMonthlyPayment(
+      principal: rb,
+      annualInterestRate: cir,
+      termMonths: rtm,
+    );
     
     // Calculate total interest for current loan
-    final totalInterestCurrent = (manager._currentMonthlyPayment * rtm) - manager._remainingBalance;
+    final totalInterestCurrent = (currentMonthlyPayment * rtm) - rb;
     
     // Calculate total interest for new loan
     final totalPaidNew = newMonthlyPayment * numPayments;
     final totalInterestNew = totalPaidNew - newLoanAmount;
     
     // Calculate upfront costs
-    final pointsCost = manager._remainingBalance * (pts / 100);
+    final pointsCost = rb * (pts / 100);
     double upfrontCosts = pointsCost;
     if (!manager._financeCosts) {
       upfrontCosts += caf;
@@ -469,7 +533,7 @@ class RefinanceManager extends ChangeNotifier {
     }
     
     // Calculate total cost difference
-    final currentTotalCost = totalInterestCurrent + manager._remainingBalance;
+    final currentTotalCost = totalInterestCurrent + rb;
     final newTotalCost = totalInterestNew + newLoanAmount + upfrontCosts + opportunityCost - coa;
     
     return currentTotalCost - newTotalCost;

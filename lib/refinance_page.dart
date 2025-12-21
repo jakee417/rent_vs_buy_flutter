@@ -700,14 +700,10 @@ class _NewLoanSection extends StatelessWidget {
             const SizedBox(height: 16),
             const Divider(),
             const SizedBox(height: 8),
-            SwitchListTile(
-              title: const Text('Finance Costs and Fees'),
-              subtitle: Text(
-                context.watch<RefinanceManager>().financeCosts
-                    ? 'Costs will be added to loan principal'
-                    : 'Costs will be paid upfront',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+            _buildSwitchField(
+              context: context,
+              manager: manager,
+              title: 'Finance Costs and Fees',
               value: context.watch<RefinanceManager>().financeCosts,
               onChanged: (value) {
                 final oldValue = manager.financeCosts;
@@ -721,6 +717,8 @@ class _NewLoanSection extends StatelessWidget {
                 );
                 manager.notifyListeners();
               },
+              subtitle: null,
+              description: 'Choose whether to finance the closing costs (add them to your loan amount) or pay them upfront. Financing costs increases your loan balance and total interest paid, but reduces upfront cash needed.',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -737,14 +735,10 @@ class _NewLoanSection extends StatelessWidget {
               variableName: 'investmentReturnRate',
             ),
             const SizedBox(height: 12),
-            SwitchListTile(
-              title: const Text('Include Opportunity Cost in Total Savings'),
-              subtitle: Text(
-                context.watch<RefinanceManager>().includeOpportunityCost
-                    ? 'Opportunity cost is included in calculations'
-                    : 'Opportunity cost is excluded from calculations',
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
+            _buildSwitchField(
+              context: context,
+              manager: manager,
+              title: 'Include Opportunity Cost in Total Savings',
               value: context.watch<RefinanceManager>().includeOpportunityCost,
               onChanged: (value) {
                 final oldValue = manager.includeOpportunityCost;
@@ -758,6 +752,8 @@ class _NewLoanSection extends StatelessWidget {
                 );
                 manager.notifyListeners();
               },
+              subtitle: null,
+              description: 'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
             ),
           ],
         ),
@@ -827,6 +823,63 @@ class _NewLoanSection extends StatelessWidget {
     );
   }
 
+
+  Widget _buildSwitchField({
+    required BuildContext context,
+    required RefinanceManager manager,
+    required String title,
+    required bool value,
+    required Function(bool) onChanged,
+    String? subtitle,
+    String? description,
+  }) {
+    final switchWidget = Switch(
+      value: value,
+      activeThumbColor: Theme.of(context).colorScheme.inversePrimary,
+      onChanged: (bool newValue) {
+        onChanged(newValue);
+      },
+    );
+    
+    final switchRow = Row(
+      children: [
+        switchWidget,
+        const Spacer(),
+      ],
+    );
+    
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (description != null)
+              _buildInfoButton(
+                context: context,
+                title: title,
+                description: description,
+              )
+            else
+              Text(title, style: const TextStyle(fontSize: 20)),
+            const Spacer(),
+          ],
+        ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4.0),
+            child: Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+        SizedBox(
+          height: 120.0,
+          width: MediaQuery.of(context).size.width,
+          child: switchRow,
+        ),
+      ],
+    );
+  }
 
   Widget _buildInfoButton({
     required BuildContext context,

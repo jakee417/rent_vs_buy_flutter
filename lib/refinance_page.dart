@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import 'package:undo/undo.dart';
 import 'chart.dart';
 import 'refinance_manager.dart';
+import 'thumb_shape.dart';
+import 'rent_vs_buy_manager.dart';
 
 class RefinancePage extends StatelessWidget {
   const RefinancePage({super.key});
@@ -724,7 +726,7 @@ class _NewLoanSection extends StatelessWidget {
             _buildInputFieldWithUndo(
               context: context,
               manager: manager,
-              label: 'Investment Return Rate (for opportunity cost)',
+              label: 'Investment Return Rate',
               value: context.watch<RefinanceManager>().investmentReturnRate,
               onChanged: (value) => manager.investmentReturnRate = value,
               suffix: '%',
@@ -1159,48 +1161,54 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                if (widget.description != null && widget.buildInfoButton != null)
-                  widget.buildInfoButton!(context, widget.label, widget.description!)
-                else
-                  Text(widget.label, style: const TextStyle(fontSize: 20)),
-                if (widget.variableName != null && widget.manager != null)
-                  _buildChartButton(context, widget.variableName!, widget.manager!),
-              ],
-            ),
-            Text(
-              '${widget.prefix ?? ''}${widget.value.toStringAsFixed(widget.prefix != null ? 0 : 2)}${widget.suffix ?? ''}',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            if (widget.description != null && widget.buildInfoButton != null)
+              widget.buildInfoButton!(context, widget.label, widget.description!)
+            else
+              Text(widget.label, style: const TextStyle(fontSize: 20)),
+            if (widget.variableName != null && widget.manager != null)
+              _buildChartButton(context, widget.variableName!, widget.manager!),
           ],
         ),
-        Slider(
-          value: widget.value.clamp(widget.min, widget.max),
-          min: widget.min,
-          max: widget.max,
-          divisions: widget.divisions,
-          onChangeStart: (v) {
-            _oldValue = widget.value;
-          },
-          onChanged: widget.onChanged,
-          onChangeEnd: (newValue) {
-            if (_oldValue != null && _oldValue != newValue) {
-              final manager = context.read<RefinanceManager>();
-              final capturedOldValue = _oldValue!;
-              manager.changes.add(
-                Change(
-                  capturedOldValue,
-                  () => widget.onChanged(newValue),
-                  (old) => widget.onChanged(old),
-                ),
-              );
-              manager.notifyListeners();
-            }
-            _oldValue = null;
-          },
+        SizedBox(
+          height: 120.0,
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              thumbShape: const ThumbShape(),
+              valueIndicatorShape: SliderComponentShape.noOverlay,
+              allowedInteraction: isWebMobile
+                  ? SliderInteraction.slideOnly
+                  : SliderInteraction.tapAndSlide,
+            ),
+            child: Slider(
+              value: widget.value.clamp(widget.min, widget.max),
+              min: widget.min,
+              max: widget.max,
+              divisions: widget.divisions,
+              onChangeStart: (v) {
+                _oldValue = widget.value;
+              },
+              onChanged: widget.onChanged,
+              onChangeEnd: (newValue) {
+                if (_oldValue != null && _oldValue != newValue) {
+                  final manager = context.read<RefinanceManager>();
+                  final capturedOldValue = _oldValue!;
+                  manager.changes.add(
+                    Change(
+                      capturedOldValue,
+                      () => widget.onChanged(newValue),
+                      (old) => widget.onChanged(old),
+                    ),
+                  );
+                  manager.notifyListeners();
+                }
+                _oldValue = null;
+              },
+              label: '${widget.prefix ?? ''}${widget.value.toStringAsFixed(widget.prefix != null ? 0 : 2)}${widget.suffix ?? ''}',
+              thumbColor: Theme.of(context).colorScheme.onPrimaryContainer,
+              inactiveColor: Theme.of(context).colorScheme.primaryContainer,
+            ),
+          ),
         ),
       ],
     );
@@ -1276,49 +1284,55 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Row(
-              children: [
-                if (widget.description != null && widget.buildInfoButton != null)
-                  widget.buildInfoButton!(context, widget.label, widget.description!)
-                else
-                  Text(widget.label, style: const TextStyle(fontSize: 20)),
-                if (widget.variableName != null && widget.manager != null)
-                  _buildChartButton(context, widget.variableName!, widget.manager!),
-              ],
-            ),
-            Text(
-              widget.value.toString(),
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
+            if (widget.description != null && widget.buildInfoButton != null)
+              widget.buildInfoButton!(context, widget.label, widget.description!)
+            else
+              Text(widget.label, style: const TextStyle(fontSize: 20)),
+            if (widget.variableName != null && widget.manager != null)
+              _buildChartButton(context, widget.variableName!, widget.manager!),
           ],
         ),
-        Slider(
-          value: widget.value.toDouble().clamp(widget.min.toDouble(), widget.max.toDouble()),
-          min: widget.min.toDouble(),
-          max: widget.max.toDouble(),
-          divisions: widget.max - widget.min,
-          onChangeStart: (v) {
-            _oldValue = widget.value;
-          },
-          onChanged: (v) => widget.onChanged(v.round()),
-          onChangeEnd: (v) {
-            final newValue = v.round();
-            if (_oldValue != null && _oldValue != newValue) {
-              final manager = context.read<RefinanceManager>();
-              final capturedOldValue = _oldValue!;
-              manager.changes.add(
-                Change(
-                  capturedOldValue,
-                  () => widget.onChanged(newValue),
-                  (old) => widget.onChanged(old),
-                ),
-              );
-              manager.notifyListeners();
-            }
-            _oldValue = null;
-          },
+        SizedBox(
+          height: 120.0,
+          child: SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              thumbShape: const ThumbShape(),
+              valueIndicatorShape: SliderComponentShape.noOverlay,
+              allowedInteraction: isWebMobile
+                  ? SliderInteraction.slideOnly
+                  : SliderInteraction.tapAndSlide,
+            ),
+            child: Slider(
+              value: widget.value.toDouble().clamp(widget.min.toDouble(), widget.max.toDouble()),
+              min: widget.min.toDouble(),
+              max: widget.max.toDouble(),
+              divisions: widget.max - widget.min,
+              onChangeStart: (v) {
+                _oldValue = widget.value;
+              },
+              onChanged: (v) => widget.onChanged(v.round()),
+              onChangeEnd: (v) {
+                final newValue = v.round();
+                if (_oldValue != null && _oldValue != newValue) {
+                  final manager = context.read<RefinanceManager>();
+                  final capturedOldValue = _oldValue!;
+                  manager.changes.add(
+                    Change(
+                      capturedOldValue,
+                      () => widget.onChanged(newValue),
+                      (old) => widget.onChanged(old),
+                    ),
+                  );
+                  manager.notifyListeners();
+                }
+                _oldValue = null;
+              },
+              label: widget.value.toString(),
+              thumbColor: Theme.of(context).colorScheme.onPrimaryContainer,
+              inactiveColor: Theme.of(context).colorScheme.primaryContainer,
+            ),
+          ),
         ),
       ],
     );

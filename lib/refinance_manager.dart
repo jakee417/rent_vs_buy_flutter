@@ -188,7 +188,7 @@ class RefinanceManager extends ChangeNotifier {
   int calculateBreakEvenMonths() {
     final monthlySavings = calculateMonthlySavings();
     if (monthlySavings <= 0) {
-      return -1; // No break-even if new payment is higher
+      return 0; // No break-even if new payment is higher
     }
     return (calculateTotalUpfrontCosts() / monthlySavings).ceil();
   }

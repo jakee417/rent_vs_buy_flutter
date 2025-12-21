@@ -674,7 +674,8 @@ class _NewLoanSection extends StatelessWidget {
               onChanged: (value) => manager.additionalPrincipalPayment = value,
               prefix: '\$',
               min: 0,
-              max: 100000,
+              max: 500000,
+              divisions: 500,
               description: 'Extra principal you pay upfront when refinancing to reduce the new loan amount. This lowers your monthly payment and total interest, but has an opportunity cost since the money could be invested instead.',
             ),
             const SizedBox(height: 16),
@@ -952,6 +953,14 @@ class _ResultsSection extends StatelessWidget {
                 '$breakEvenMonths months (${(breakEvenMonths / 12).toStringAsFixed(1)} years)',
                 description: 'The time it will take for your monthly savings to offset the upfront costs of refinancing. After this point, you start seeing net savings.',
               )
+            else if (breakEvenMonths == 0)
+              _buildResultRow(
+                context,
+                'Break-Even Point',
+                'Immediate',
+                valueColor: Colors.green,
+                description: 'Your monthly savings immediately offset the upfront costs of refinancing.',
+              )
             else
               _buildResultRow(
                 context,
@@ -966,21 +975,6 @@ class _ResultsSection extends StatelessWidget {
               currencyFormat.format(totalSavings),
               valueColor: totalSavings > 0 ? Colors.green : Colors.red,
               description: 'The total amount of interest you will save (or pay extra if negative) over the life of the loan, including all costs and opportunity costs.',
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Analysis:',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getAnalysisText(
-                monthlySavings: monthlySavings,
-                breakEvenMonths: breakEvenMonths,
-                totalSavings: totalSavings,
-                isAdvantageous: isAdvantageous,
-              ),
-              style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
         ),
@@ -1095,28 +1089,6 @@ class _ResultsSection extends StatelessWidget {
         style: Theme.of(context).textTheme.bodyLarge,
       ),
     );
-  }
-
-  String _getAnalysisText({
-    required double monthlySavings,
-    required int breakEvenMonths,
-    required double totalSavings,
-    required bool isAdvantageous,
-  }) {
-    if (isAdvantageous) {
-      if (monthlySavings > 0 && breakEvenMonths > 0) {
-        return 'Refinancing appears to be a good option. You will save ${NumberFormat.simpleCurrency().format(monthlySavings)} per month and recoup your upfront costs in approximately ${(breakEvenMonths / 12).toStringAsFixed(1)} years. ';
-      } else if (totalSavings > 0) {
-        return 'While your monthly payment may increase, refinancing could save you ${NumberFormat.simpleCurrency().format(totalSavings)} in total interest over the life of the loan.';
-      }
-    } else {
-      if (monthlySavings < 0) {
-        return 'Your monthly payment would increase by ${NumberFormat.simpleCurrency().format(monthlySavings.abs())}, which may not be ideal. Consider if the other benefits outweigh this cost.';
-      } else if (breakEvenMonths > 60) {
-        return 'It would take over 5 years to break even on the upfront costs. Consider how long you plan to stay in the home.';
-      }
-    }
-    return 'Review the numbers carefully to determine if refinancing makes sense for your situation. Consider factors like how long you plan to stay in the home and your financial goals.';
   }
 }
 

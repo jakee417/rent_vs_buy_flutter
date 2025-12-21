@@ -299,7 +299,7 @@ class RefinanceManager extends ChangeNotifier {
     required int divisions,
     required RefinanceManager manager,
   }) {
-    final maxLength = 80;
+    const maxLength = 80;
     final numPoints = math.min(maxLength, divisions);
     
     List<ChartSpot> spots = [];

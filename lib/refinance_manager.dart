@@ -1,6 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
+import 'package:ml_linalg/linalg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:undo/undo.dart';
+import 'chart.dart';
 
 class RefinanceManager extends ChangeNotifier {
   final changes = ChangeStack();
@@ -287,6 +290,190 @@ class RefinanceManager extends ChangeNotifier {
     _includeOpportunityCost = await preferences.getBool('refinance_includeOpportunityCost') ?? true;
     notifyListeners();
   }
+
+  // Calculate chart data for a specific variable
+  static ChartData calculateChart({
+    required String variableName,
+    required double min,
+    required double max,
+    required int divisions,
+    required RefinanceManager manager,
+  }) {
+    final maxLength = 80;
+    final numPoints = math.min(maxLength, divisions);
+    
+    List<ChartSpot> spots = [];
+    final step = (max - min) / numPoints;
+    
+    for (int i = 0; i <= numPoints; i++) {
+      final gridValue = min + (step * i);
+      
+      // Create a temporary manager with the current value
+      double totalSavings;
+      
+      switch (variableName) {
+        case 'currentInterestRate':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            currentInterestRate: gridValue,
+          );
+          break;
+        case 'remainingTermMonths':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            remainingTermMonths: gridValue.round(),
+          );
+          break;
+        case 'newLoanTermYears':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            newLoanTermYears: gridValue.round(),
+          );
+          break;
+        case 'newInterestRate':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            newInterestRate: gridValue,
+          );
+          break;
+        case 'points':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            points: gridValue,
+          );
+          break;
+        case 'costsAndFees':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            costsAndFees: gridValue,
+          );
+          break;
+        case 'cashOutAmount':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            cashOutAmount: gridValue,
+          );
+          break;
+        case 'additionalPrincipalPayment':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            additionalPrincipalPayment: gridValue,
+          );
+          break;
+        case 'investmentReturnRate':
+          totalSavings = _calculateTotalSavingsWithValue(
+            manager,
+            investmentReturnRate: gridValue,
+          );
+          break;
+        default:
+          totalSavings = manager.calculateTotalCostDifference();
+      }
+      
+      spots.add(ChartSpot(index: gridValue, value: totalSavings));
+    }
+    
+    // Rescale values for display
+    var rescaledValues = Vector.fromList(spots.map((i) => i.value).toList());
+    final smallest = rescaledValues.min();
+    final largest = rescaledValues.max();
+    
+    if (smallest != largest) {
+      rescaledValues = rescaledValues.rescale();
+    } else {
+      rescaledValues = Vector.filled(rescaledValues.length, 0.0);
+    }
+    
+    final rescaledIndex = Vector.fromList(spots.map((i) => i.index).toList()).rescale();
+    
+    for (int i = 0; i < spots.length; i++) {
+      spots[i].value = rescaledValues[i];
+      spots[i].index = rescaledIndex[i];
+    }
+    
+    return ChartData(
+      spots: spots,
+      series: "totalSavings",
+      minY: smallest,
+      maxY: largest,
+      minX: min,
+      maxX: max,
+      length: spots.length,
+    );
+  }
+
+  static double _calculateTotalSavingsWithValue(
+    RefinanceManager manager, {
+    double? currentInterestRate,
+    int? remainingTermMonths,
+    int? newLoanTermYears,
+    double? newInterestRate,
+    double? points,
+    double? costsAndFees,
+    double? cashOutAmount,
+    double? additionalPrincipalPayment,
+    double? investmentReturnRate,
+  }) {
+    // Use provided values or fall back to manager's values
+    final rtm = remainingTermMonths ?? manager._remainingTermMonths;
+    final nlty = newLoanTermYears ?? manager._newLoanTermYears;
+    final nir = newInterestRate ?? manager._newInterestRate;
+    final pts = points ?? manager._points;
+    final caf = costsAndFees ?? manager._costsAndFees;
+    final coa = cashOutAmount ?? manager._cashOutAmount;
+    final app = additionalPrincipalPayment ?? manager._additionalPrincipalPayment;
+    final irr = investmentReturnRate ?? manager._investmentReturnRate;
+    
+    // Calculate new loan amount
+    double newLoanAmount = manager._remainingBalance + coa;
+    if (manager._financeCosts) {
+      newLoanAmount += caf;
+    }
+    newLoanAmount -= app;
+    
+    // Calculate new monthly payment
+    final monthlyRate = nir / 100 / 12;
+    final numPayments = nlty * 12;
+    double newMonthlyPayment;
+    if (monthlyRate == 0) {
+      newMonthlyPayment = newLoanAmount / numPayments;
+    } else {
+      newMonthlyPayment = newLoanAmount *
+          (monthlyRate * pow(1 + monthlyRate, numPayments)) /
+          (pow(1 + monthlyRate, numPayments) - 1);
+    }
+    
+    // Calculate total interest for current loan
+    final totalInterestCurrent = (manager._currentMonthlyPayment * rtm) - manager._remainingBalance;
+    
+    // Calculate total interest for new loan
+    final totalPaidNew = newMonthlyPayment * numPayments;
+    final totalInterestNew = totalPaidNew - newLoanAmount;
+    
+    // Calculate upfront costs
+    final pointsCost = manager._remainingBalance * (pts / 100);
+    double upfrontCosts = pointsCost;
+    if (!manager._financeCosts) {
+      upfrontCosts += caf;
+    }
+    upfrontCosts += app;
+    
+    // Calculate opportunity cost
+    double opportunityCost = 0.0;
+    if (manager._includeOpportunityCost && upfrontCosts > 0) {
+      final monthlyRateInv = irr / 100 / 12;
+      if (monthlyRateInv > 0) {
+        final futureValue = upfrontCosts * pow(1 + monthlyRateInv, numPayments);
+        opportunityCost = futureValue - upfrontCosts;
+      }
+    }
+    
+    // Calculate total cost difference
+    final currentTotalCost = totalInterestCurrent + manager._remainingBalance;
+    final newTotalCost = totalInterestNew + newLoanAmount + upfrontCosts + opportunityCost - coa;
+    
+    return currentTotalCost - newTotalCost;
+  }
 }
 
 // Helper function for power calculation
@@ -297,3 +484,4 @@ double pow(double base, int exponent) {
   }
   return result;
 }
+

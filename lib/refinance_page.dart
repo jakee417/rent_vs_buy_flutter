@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:undo/undo.dart';
+import 'chart.dart';
 import 'refinance_manager.dart';
 
 class RefinancePage extends StatelessWidget {
@@ -416,6 +417,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               max: 20.0,
               divisions: 199,
               description: 'The annual interest rate on your current mortgage loan. This is the APR (Annual Percentage Rate) on your existing loan.',
+              variableName: 'currentInterestRate',
             ),
             const SizedBox(height: 12),
             _buildIntInputFieldWithUndo(
@@ -427,6 +429,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               min: 12,
               max: 360,
               description: 'The number of months remaining on your current mortgage. For example, if you have 25 years left on a 30-year loan, enter 300 months.',
+              variableName: 'remainingTermMonths',
             ),
           ],
         ),
@@ -481,7 +484,9 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required double max,
     int divisions = 100,
     String? description,
+    String? variableName,
   }) {
+    final manager = context.read<RefinanceManager>();
     return _UndoableDoubleSlider(
       label: label,
       value: value,
@@ -497,6 +502,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
         title: title,
         description: desc,
       ) : null,
+      variableName: variableName,
+      manager: manager,
     );
   }
 
@@ -508,7 +515,9 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required int min,
     required int max,
     String? description,
+    String? variableName,
   }) {
+    final manager = context.read<RefinanceManager>();
     return _UndoableIntSlider(
       label: label,
       value: value,
@@ -521,6 +530,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
         title: title,
         description: desc,
       ) : null,
+      variableName: variableName,
+      manager: manager,
     );
   }
 
@@ -613,6 +624,7 @@ class _NewLoanSection extends StatelessWidget {
               min: 10,
               max: 30,
               description: 'The length of the new mortgage in years. Common terms are 15 or 30 years. Shorter terms have higher monthly payments but lower total interest costs.',
+              variableName: 'newLoanTermYears',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -626,6 +638,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 20.0,
               divisions: 199,
               description: 'The annual interest rate for the new loan. Refinancing makes sense when this rate is significantly lower than your current rate (typically at least 0.5-1% lower).',
+              variableName: 'newInterestRate',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -639,6 +652,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 5.0,
               divisions: 50,
               description: 'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
+              variableName: 'points',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -652,6 +666,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 20000,
               divisions: 200,
               description: 'Closing costs including appraisal, title insurance, origination fees, etc. Typical refinance costs range from 2-5% of the loan amount. You can choose to finance these or pay upfront.',
+              variableName: 'costsAndFees',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -664,6 +679,7 @@ class _NewLoanSection extends StatelessWidget {
               min: 0,
               max: 100000,
               description: 'Additional cash you want to receive when refinancing (cash-out refinance). This amount is added to your new loan balance.',
+              variableName: 'cashOutAmount',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -677,6 +693,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 500000,
               divisions: 500,
               description: 'Extra principal you pay upfront when refinancing to reduce the new loan amount. This lowers your monthly payment and total interest, but has an opportunity cost since the money could be invested instead.',
+              variableName: 'additionalPrincipalPayment',
             ),
             const SizedBox(height: 16),
             const Divider(),
@@ -715,6 +732,7 @@ class _NewLoanSection extends StatelessWidget {
               max: 20.0,
               divisions: 200,
               description: 'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
+              variableName: 'investmentReturnRate',
             ),
             const SizedBox(height: 12),
             SwitchListTile(
@@ -757,6 +775,7 @@ class _NewLoanSection extends StatelessWidget {
     required double max,
     int divisions = 100,
     String? description,
+    String? variableName,
   }) {
     return _UndoableDoubleSlider(
       label: label,
@@ -773,6 +792,8 @@ class _NewLoanSection extends StatelessWidget {
         title: title,
         description: desc,
       ) : null,
+      variableName: variableName,
+      manager: manager,
     );
   }
 
@@ -785,6 +806,7 @@ class _NewLoanSection extends StatelessWidget {
     required int min,
     required int max,
     String? description,
+    String? variableName,
   }) {
     return _UndoableIntSlider(
       label: label,
@@ -798,6 +820,8 @@ class _NewLoanSection extends StatelessWidget {
         title: title,
         description: desc,
       ) : null,
+      variableName: variableName,
+      manager: manager,
     );
   }
 
@@ -1104,6 +1128,8 @@ class _UndoableDoubleSlider extends StatefulWidget {
   final int divisions;
   final String? description;
   final Widget Function(BuildContext, String, String)? buildInfoButton;
+  final String? variableName;
+  final RefinanceManager? manager;
 
   const _UndoableDoubleSlider({
     required this.label,
@@ -1116,6 +1142,8 @@ class _UndoableDoubleSlider extends StatefulWidget {
     this.divisions = 100,
     this.description,
     this.buildInfoButton,
+    this.variableName,
+    this.manager,
   });
 
   @override
@@ -1133,10 +1161,16 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (widget.description != null && widget.buildInfoButton != null)
-              widget.buildInfoButton!(context, widget.label, widget.description!)
-            else
-              Text(widget.label, style: const TextStyle(fontSize: 20)),
+            Row(
+              children: [
+                if (widget.description != null && widget.buildInfoButton != null)
+                  widget.buildInfoButton!(context, widget.label, widget.description!)
+                else
+                  Text(widget.label, style: const TextStyle(fontSize: 20)),
+                if (widget.variableName != null && widget.manager != null)
+                  _buildChartButton(context, widget.variableName!, widget.manager!),
+              ],
+            ),
             Text(
               '${widget.prefix ?? ''}${widget.value.toStringAsFixed(widget.prefix != null ? 0 : 2)}${widget.suffix ?? ''}',
               style: Theme.of(context).textTheme.titleMedium,
@@ -1171,6 +1205,38 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
       ],
     );
   }
+
+  Widget _buildChartButton(BuildContext context, String variableName, RefinanceManager manager) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChartWidget(
+              title: widget.label,
+              chartData: RefinanceManager.calculateChart(
+                variableName: variableName,
+                min: widget.min,
+                max: widget.max,
+                divisions: widget.divisions,
+                manager: manager,
+              ),
+            ),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: EdgeInsets.zero,
+        fixedSize: const Size(10, 10),
+      ),
+      child: const Icon(
+        Icons.auto_graph_sharp,
+        size: 25.0,
+        semanticLabel: "See graph of marginal values.",
+      ),
+    );
+  }
 }
 
 // Stateful widget for int sliders with undo/redo support
@@ -1182,6 +1248,8 @@ class _UndoableIntSlider extends StatefulWidget {
   final int max;
   final String? description;
   final Widget Function(BuildContext, String, String)? buildInfoButton;
+  final String? variableName;
+  final RefinanceManager? manager;
 
   const _UndoableIntSlider({
     required this.label,
@@ -1191,6 +1259,8 @@ class _UndoableIntSlider extends StatefulWidget {
     required this.max,
     this.description,
     this.buildInfoButton,
+    this.variableName,
+    this.manager,
   });
 
   @override
@@ -1208,10 +1278,16 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            if (widget.description != null && widget.buildInfoButton != null)
-              widget.buildInfoButton!(context, widget.label, widget.description!)
-            else
-              Text(widget.label, style: const TextStyle(fontSize: 20)),
+            Row(
+              children: [
+                if (widget.description != null && widget.buildInfoButton != null)
+                  widget.buildInfoButton!(context, widget.label, widget.description!)
+                else
+                  Text(widget.label, style: const TextStyle(fontSize: 20)),
+                if (widget.variableName != null && widget.manager != null)
+                  _buildChartButton(context, widget.variableName!, widget.manager!),
+              ],
+            ),
             Text(
               widget.value.toString(),
               style: Theme.of(context).textTheme.titleMedium,
@@ -1245,6 +1321,38 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
           },
         ),
       ],
+    );
+  }
+
+  Widget _buildChartButton(BuildContext context, String variableName, RefinanceManager manager) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChartWidget(
+              title: widget.label,
+              chartData: RefinanceManager.calculateChart(
+                variableName: variableName,
+                min: widget.min.toDouble(),
+                max: widget.max.toDouble(),
+                divisions: widget.max - widget.min,
+                manager: manager,
+              ),
+            ),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: EdgeInsets.zero,
+        fixedSize: const Size(10, 10),
+      ),
+      child: const Icon(
+        Icons.auto_graph_sharp,
+        size: 25.0,
+        semanticLabel: "See graph of marginal values.",
+      ),
     );
   }
 }

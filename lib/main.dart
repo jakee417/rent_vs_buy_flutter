@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:rent_vs_buy/chart.dart';
 import 'package:rent_vs_buy/pie_chart.dart';
 import 'package:rent_vs_buy/radio_data.dart';
+import 'package:rent_vs_buy/refinance_page.dart';
 import 'package:rent_vs_buy/rent_vs_buy_manager.dart';
 import 'package:rent_vs_buy/slider_data.dart';
 import 'package:rent_vs_buy/switch_data.dart';
@@ -55,6 +56,16 @@ class RentVsBuyWidget extends StatelessWidget {
 
 Route<dynamic> generateRoute(RouteSettings settings) {
   final routeName = settings.name ?? '';
+  
+  if (routeName == '/refinance') {
+    return MaterialPageRoute(
+      settings: RouteSettings(name: routeName),
+      builder: (context) {
+        return const RefinancePage();
+      },
+    );
+  }
+  
   return MaterialPageRoute(
     settings: RouteSettings(name: routeName),
     builder: (context) {
@@ -189,7 +200,7 @@ class _Sliders extends State<Sliders> {
   }) {
     Switch switchWidget = Switch(
       value: data.value,
-      activeColor: Theme.of(context).colorScheme.inversePrimary,
+      activeThumbColor: Theme.of(context).colorScheme.inversePrimary,
       onChanged: (bool value) {
         setState(
           () {
@@ -675,6 +686,18 @@ The rent breakdown will be:
           "Rent vs. Buy",
           style: TextStyle(fontSize: 24),
         ),
+      ),
+      ListTile(
+        title: const Text("Refinance Calculator"),
+        leading: const Icon(
+          Icons.calculate,
+          size: 25.0,
+          semanticLabel: "Open refinance calculator.",
+        ),
+        onTap: () {
+          Navigator.pop(context);
+          Navigator.pushNamed(context, '/refinance');
+        },
       ),
       ListTile(
         title: const Text("Copy to CSV"),

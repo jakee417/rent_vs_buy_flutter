@@ -208,7 +208,7 @@ class RefinanceCalculations {
     );
     
     // Calculate remaining balance at target term using standard formula
-    // Remaining balance = P * [(1 + r)^n - (1 + r)^p] / [(1 + r)^n - 1]
+    // Remaining balance = P * (1 + r)^p - M * [(1 + r)^p - 1] / r
     // Where p = payments made (currentTerm - targetTerm)
     final monthsPassed = currentTermMonths - targetTermMonths;
     
@@ -221,11 +221,10 @@ class RefinanceCalculations {
     
     // Calculate balance after making payments for monthsPassed months
     final onePlusR = 1 + monthlyRate;
-    final numerator = currentBalance * math.pow(onePlusR, currentTermMonths) - 
+    final balance = currentBalance * math.pow(onePlusR, monthsPassed) - 
                      monthlyPayment * ((math.pow(onePlusR, monthsPassed) - 1) / monthlyRate);
-    final denominator = math.pow(onePlusR, currentTermMonths - monthsPassed);
     
-    return numerator / denominator;
+    return balance;
   }
 
   // Calculate chart data for a specific variable

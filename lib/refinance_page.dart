@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -43,6 +42,46 @@ class RefinanceView extends StatelessWidget {
             },
           ),
         ],
+      ),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+              ),
+              child: const Text(
+                "Refinance Calculator",
+                style: TextStyle(fontSize: 24),
+              ),
+            ),
+            ListTile(
+              title: const Text("Home"),
+              leading: const Icon(
+                Icons.home,
+                size: 25.0,
+                semanticLabel: "Go to home page.",
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/');
+              },
+            ),
+            ListTile(
+              title: const Text("Rent vs. Buy Calculator"),
+              leading: const Icon(
+                Icons.compare_arrows,
+                size: 25.0,
+                semanticLabel: "Open rent vs. buy calculator.",
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/rent-vs-buy');
+              },
+            ),
+          ],
+        ),
       ),
       bottomNavigationBar: _buildBottomBar(context),
       body: const SingleChildScrollView(

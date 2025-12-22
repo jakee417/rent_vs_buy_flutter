@@ -12,7 +12,7 @@ A suite of financial calculators including rent vs. buy and refinance calculator
 First run:
 
 ```bash
-flutter run -d chrome --web-hostname 0.0.0.0 --web-port 8888
+flutter run -d web-server --web-port 8080
 ```
 
 to serve the web server locally. You can access it from a mobile device by browsing to your computer's IP address at port `8888`.

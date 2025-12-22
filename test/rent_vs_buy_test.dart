@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rent_vs_buy/rent_vs_buy.dart';
+import 'package:finance_calculator/rent_vs_buy.dart';
 
 void main() {
   group('RentVsBuy Utility Methods', () {

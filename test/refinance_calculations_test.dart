@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rent_vs_buy/refinance_calculations.dart';
+import 'package:finance_calculator/refinance_calculations.dart';
 
 void main() {
   group('RefinanceCalculations', () {

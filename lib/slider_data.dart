@@ -1,5 +1,5 @@
 import 'package:intl/intl.dart';
-import 'package:rent_vs_buy/data.dart';
+import 'package:finance_calculator/data.dart';
 
 enum NumberType { dollar, percentage, decimal }
 

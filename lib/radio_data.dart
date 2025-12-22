@@ -1,4 +1,4 @@
-import 'package:rent_vs_buy/data.dart';
+import 'package:finance_calculator/data.dart';
 
 class RadioData implements Data {
   RadioData({

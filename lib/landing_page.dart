@@ -36,7 +36,7 @@ class LandingPage extends StatelessWidget {
                 context: context,
                 title: 'Rent vs. Buy Calculator',
                 description: 'Compare the costs of renting versus buying a home',
-                icon: Icons.home,
+                icon: Icons.compare_arrows,
                 onTap: () {
                   Navigator.pushNamed(context, '/rent-vs-buy');
                 },

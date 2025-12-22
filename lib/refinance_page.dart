@@ -32,16 +32,10 @@ class RefinanceView extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Refinance Calculator'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.restore),
-            tooltip: 'Reset to Defaults',
-            onPressed: () {
-              context.read<RefinanceManager>().reset();
-            },
-          ),
-        ],
+        title: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [Text("Refinance Calculator")],
+        ),
       ),
       drawer: Drawer(
         child: ListView(
@@ -80,6 +74,17 @@ class RefinanceView extends StatelessWidget {
                 Navigator.pushNamed(context, '/rent-vs-buy');
               },
             ),
+            ListTile(
+              title: const Text("Reset to Defaults"),
+              leading: const Icon(
+                Icons.restore,
+                size: 25.0,
+                semanticLabel: "Reset all options.",
+              ),
+              onTap: () {
+                context.read<RefinanceManager>().reset();
+              },
+            )
           ],
         ),
       ),
@@ -105,7 +110,7 @@ class RefinanceView extends StatelessWidget {
       builder: (context, manager, child) {
         final newMonthlyPayment = manager.calculateNewMonthlyPayment();
         final formatter = NumberFormat.simpleCurrency();
-        
+
         return BottomAppBar(
           child: Row(
             children: [
@@ -213,8 +218,9 @@ class RefinanceView extends StatelessWidget {
     final breakEven = manager.calculateBreakEvenMonths();
     final totalUpfront = manager.calculateTotalUpfrontCosts();
     final opportunityCost = manager.calculateOpportunityCost();
-    
-    final description = """Refinancing from ${manager.currentInterestRate.toStringAsFixed(2)}% to ${manager.newInterestRate.toStringAsFixed(2)}%:
+
+    final description =
+        """Refinancing from ${manager.currentInterestRate.toStringAsFixed(2)}% to ${manager.newInterestRate.toStringAsFixed(2)}%:
 
 Current Loan:
   - Remaining Balance: ${formatter.format(manager.remainingBalance)}
@@ -231,9 +237,10 @@ New Loan:
   - Break-Even: $breakEven months
   - Opportunity Cost: ${formatter.format(opportunityCost)}
 """;
-    
-    final bottomLine = "Total Savings: ${formatter.format(totalSavings)} (${totalSavings > 0 ? "benefit" : "loss"})";
-    
+
+    final bottomLine =
+        "Total Savings: ${formatter.format(totalSavings)} (${totalSavings > 0 ? "benefit" : "loss"})";
+
     return TextButton(
       onPressed: () {
         showModalBottomSheet<void>(
@@ -309,7 +316,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     super.initState();
     _balanceController = TextEditingController();
     _balanceFocusNode = FocusNode();
-    
+
     _balanceFocusNode.addListener(_onBalanceFocusChange);
   }
 
@@ -328,7 +335,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
       _balanceOldValue = manager.remainingBalance;
     } else {
       // Finished editing - add undo change if value changed
-      if (_balanceOldValue != null && _balanceOldValue != manager.remainingBalance) {
+      if (_balanceOldValue != null &&
+          _balanceOldValue != manager.remainingBalance) {
         final capturedOldValue = _balanceOldValue!;
         final capturedNewValue = manager.remainingBalance;
         manager.changes.add(
@@ -352,7 +360,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
   @override
   Widget build(BuildContext context) {
     final manager = context.watch<RefinanceManager>();
-    
+
     // Update controllers if values changed externally (only when not focused)
     if (!_balanceController.selection.isValid) {
       final balanceText = manager.remainingBalance.toString();
@@ -378,7 +386,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               controller: _balanceController,
               focusNode: _balanceFocusNode,
               onChanged: (value) {
-                final cleanValue = value.replaceAll(',', '').replaceAll('\$', '').trim();
+                final cleanValue =
+                    value.replaceAll(',', '').replaceAll('\$', '').trim();
                 final parsed = double.tryParse(cleanValue);
                 if (parsed != null && parsed >= 0) {
                   final manager = context.read<RefinanceManager>();
@@ -386,7 +395,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
                 }
               },
               prefix: '\$',
-              description: 'The outstanding principal balance on your current mortgage loan. This is what you still owe, not the original loan amount.',
+              description:
+                  'The outstanding principal balance on your current mortgage loan. This is what you still owe, not the original loan amount.',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -399,7 +409,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
               min: 0.1,
               max: 20.0,
               divisions: 199,
-              description: 'The fixed annual interest rate on your current mortgage loan (not APR). This is the nominal rate used to calculate your monthly payment, excluding fees and points which are handled separately.',
+              description:
+                  'The fixed annual interest rate on your current mortgage loan (not APR). This is the nominal rate used to calculate your monthly payment, excluding fees and points which are handled separately.',
               typicalValue: '4-6%',
             ),
             const SizedBox(height: 12),
@@ -411,7 +422,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
                   context.read<RefinanceManager>().remainingTermMonths = value,
               min: 12,
               max: 360,
-              description: 'The number of months remaining on your current mortgage. This also represents WHEN you choose to refinance - waiting longer means paying down more principal but paying more interest. The chart shows how timing affects total savings.',
+              description:
+                  'The number of months remaining on your current mortgage. This also represents WHEN you choose to refinance - waiting longer means paying down more principal but paying more interest. The chart shows how timing affects total savings.',
               typicalValue: '240-300 months',
               variableName: 'remainingTermMonths',
             ),
@@ -419,8 +431,10 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
             _buildReadOnlyField(
               context: context,
               label: 'Current Monthly Payment',
-              value: NumberFormat.simpleCurrency().format(manager.calculateCurrentMonthlyPayment()),
-              description: 'Your current monthly mortgage payment including principal and interest, calculated from your remaining balance, interest rate, and term. Does not include property taxes, insurance, or HOA fees.',
+              value: NumberFormat.simpleCurrency()
+                  .format(manager.calculateCurrentMonthlyPayment()),
+              description:
+                  'Your current monthly mortgage payment including principal and interest, calculated from your remaining balance, interest rate, and term. Does not include property taxes, insurance, or HOA fees.',
             ),
           ],
         ),
@@ -456,7 +470,8 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
           decoration: InputDecoration(
             prefixText: prefix,
             border: const OutlineInputBorder(),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
           ),
           onChanged: onChanged,
         ),
@@ -524,12 +539,14 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
       max: max,
       divisions: divisions,
       description: description,
-      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
-        context: ctx,
-        title: title,
-        description: desc,
-        typicalValue: typicalValue,
-      ) : null,
+      buildInfoButton: description != null
+          ? (ctx, title, desc) => _buildInfoButton(
+                context: ctx,
+                title: title,
+                description: desc,
+                typicalValue: typicalValue,
+              )
+          : null,
       variableName: variableName,
       manager: manager,
     );
@@ -554,12 +571,14 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
       min: min,
       max: max,
       description: description,
-      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
-        context: ctx,
-        title: title,
-        description: desc,
-        typicalValue: typicalValue,
-      ) : null,
+      buildInfoButton: description != null
+          ? (ctx, title, desc) => _buildInfoButton(
+                context: ctx,
+                title: title,
+                description: desc,
+                typicalValue: typicalValue,
+              )
+          : null,
       variableName: variableName,
       manager: manager,
     );
@@ -642,7 +661,7 @@ class _NewLoanSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final manager = context.read<RefinanceManager>();
-    
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -662,7 +681,8 @@ class _NewLoanSection extends StatelessWidget {
               onChanged: (value) => manager.newLoanTermYears = value,
               min: 10,
               max: 30,
-              description: 'The length of the new mortgage in years. Common terms are 15 or 30 years. Shorter terms have higher monthly payments but lower total interest costs.',
+              description:
+                  'The length of the new mortgage in years. Common terms are 15 or 30 years. Shorter terms have higher monthly payments but lower total interest costs.',
               typicalValue: '30 years',
               variableName: 'newLoanTermYears',
             ),
@@ -677,7 +697,8 @@ class _NewLoanSection extends StatelessWidget {
               min: 0.1,
               max: 20.0,
               divisions: 199,
-              description: 'The annual interest rate for the new loan. Refinancing makes sense when this rate is significantly lower than your current rate (typically at least 0.5-1% lower).',
+              description:
+                  'The annual interest rate for the new loan. Refinancing makes sense when this rate is significantly lower than your current rate (typically at least 0.5-1% lower).',
               typicalValue: '3-5%',
               variableName: 'newInterestRate',
             ),
@@ -692,7 +713,8 @@ class _NewLoanSection extends StatelessWidget {
               min: 0.0,
               max: 5.0,
               divisions: 50,
-              description: 'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
+              description:
+                  'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
               typicalValue: '0-2%',
               variableName: 'points',
             ),
@@ -707,7 +729,8 @@ class _NewLoanSection extends StatelessWidget {
               min: 0,
               max: 20000,
               divisions: 200,
-              description: 'Closing costs including appraisal, title insurance, origination fees, etc. Typical refinance costs range from 2-5% of the loan amount. You can choose to finance these or pay upfront.',
+              description:
+                  'Closing costs including appraisal, title insurance, origination fees, etc. Typical refinance costs range from 2-5% of the loan amount. You can choose to finance these or pay upfront.',
               typicalValue: '\$3,000-\$5,000',
               variableName: 'costsAndFees',
             ),
@@ -721,7 +744,8 @@ class _NewLoanSection extends StatelessWidget {
               prefix: '\$',
               min: 0,
               max: 100000,
-              description: 'Additional cash you want to receive when refinancing (cash-out refinance). This amount is added to your new loan balance.',
+              description:
+                  'Additional cash you want to receive when refinancing (cash-out refinance). This amount is added to your new loan balance.',
               typicalValue: '\$0',
               variableName: 'cashOutAmount',
             ),
@@ -730,13 +754,15 @@ class _NewLoanSection extends StatelessWidget {
               context: context,
               manager: manager,
               label: 'Additional Principal Payment',
-              value: context.watch<RefinanceManager>().additionalPrincipalPayment,
+              value:
+                  context.watch<RefinanceManager>().additionalPrincipalPayment,
               onChanged: (value) => manager.additionalPrincipalPayment = value,
               prefix: '\$',
               min: 0,
               max: 500000,
               divisions: 500,
-              description: 'Extra principal you pay upfront when refinancing to reduce the new loan amount. This lowers your monthly payment and total interest, but has an opportunity cost since the money could be invested instead.',
+              description:
+                  'Extra principal you pay upfront when refinancing to reduce the new loan amount. This lowers your monthly payment and total interest, but has an opportunity cost since the money could be invested instead.',
               typicalValue: '\$0',
               variableName: 'additionalPrincipalPayment',
             ),
@@ -760,7 +786,8 @@ class _NewLoanSection extends StatelessWidget {
                 );
               },
               subtitle: null,
-              description: 'Choose whether to finance the closing costs (add them to your loan amount) or pay them upfront. Financing costs increases your loan balance and total interest paid, but reduces upfront cash needed.',
+              description:
+                  'Choose whether to finance the closing costs (add them to your loan amount) or pay them upfront. Financing costs increases your loan balance and total interest paid, but reduces upfront cash needed.',
               typicalValue: 'True - most people finance costs',
             ),
             const SizedBox(height: 12),
@@ -774,7 +801,8 @@ class _NewLoanSection extends StatelessWidget {
               min: 0.0,
               max: 20.0,
               divisions: 200,
-              description: 'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
+              description:
+                  'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
               typicalValue: '7%',
               variableName: 'investmentReturnRate',
             ),
@@ -796,7 +824,8 @@ class _NewLoanSection extends StatelessWidget {
                 );
               },
               subtitle: null,
-              description: 'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
+              description:
+                  'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
               typicalValue: 'True',
             ),
           ],
@@ -830,12 +859,14 @@ class _NewLoanSection extends StatelessWidget {
       max: max,
       divisions: divisions,
       description: description,
-      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
-        context: ctx,
-        title: title,
-        description: desc,
-        typicalValue: typicalValue,
-      ) : null,
+      buildInfoButton: description != null
+          ? (ctx, title, desc) => _buildInfoButton(
+                context: ctx,
+                title: title,
+                description: desc,
+                typicalValue: typicalValue,
+              )
+          : null,
       variableName: variableName,
       manager: manager,
     );
@@ -860,17 +891,18 @@ class _NewLoanSection extends StatelessWidget {
       min: min,
       max: max,
       description: description,
-      buildInfoButton: description != null ? (ctx, title, desc) => _buildInfoButton(
-        context: ctx,
-        title: title,
-        description: desc,
-        typicalValue: typicalValue,
-      ) : null,
+      buildInfoButton: description != null
+          ? (ctx, title, desc) => _buildInfoButton(
+                context: ctx,
+                title: title,
+                description: desc,
+                typicalValue: typicalValue,
+              )
+          : null,
       variableName: variableName,
       manager: manager,
     );
   }
-
 
   Widget _buildSwitchField({
     required BuildContext context,
@@ -889,14 +921,14 @@ class _NewLoanSection extends StatelessWidget {
         onChanged(newValue);
       },
     );
-    
+
     final switchRow = Row(
       children: [
         switchWidget,
         const Spacer(),
       ],
     );
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1053,14 +1085,16 @@ class _ResultsSection extends StatelessWidget {
               context,
               'New Monthly Payment',
               currencyFormat.format(newMonthlyPayment),
-              description: 'The estimated monthly payment for the new refinanced loan, including principal and interest. Disregards taxes, insurance, and HOA fees.',
+              description:
+                  'The estimated monthly payment for the new refinanced loan, including principal and interest. Disregards taxes, insurance, and HOA fees.',
             ),
             _buildResultRow(
               context,
               'Monthly Savings',
               currencyFormat.format(monthlySavings),
               valueColor: monthlySavings > 0 ? Colors.green : Colors.red,
-              description: 'The difference between your current monthly payment and the new monthly payment. Positive means you save money each month.',
+              description:
+                  'The difference between your current monthly payment and the new monthly payment. Positive means you save money each month.',
             ),
             _buildResultRow(
               context,
@@ -1070,7 +1104,7 @@ class _ResultsSection extends StatelessWidget {
                   ? (manager.financeCosts
                       ? 'Includes ${currencyFormat.format(manager.additionalPrincipalPayment)} additional principal payment and points. Costs and fees are being added to the loan principal.'
                       : 'Includes ${currencyFormat.format(manager.additionalPrincipalPayment)} additional principal payment, plus points, costs, and fees.')
-                  : (manager.financeCosts 
+                  : (manager.financeCosts
                       ? 'The upfront points cost. Costs and fees are being added to the loan principal.'
                       : 'The total amount you need to pay upfront, including points, costs, and fees.'),
             ),
@@ -1089,7 +1123,8 @@ class _ResultsSection extends StatelessWidget {
                 context,
                 'Break-Even Point',
                 '$breakEvenMonths months (${(breakEvenMonths / 12).toStringAsFixed(1)} years)',
-                description: 'The time it will take for your monthly savings to offset the upfront costs of refinancing. After this point, you start seeing net savings.',
+                description:
+                    'The time it will take for your monthly savings to offset the upfront costs of refinancing. After this point, you start seeing net savings.',
               )
             else if (breakEvenMonths == 0)
               _buildResultRow(
@@ -1097,7 +1132,8 @@ class _ResultsSection extends StatelessWidget {
                 'Break-Even Point',
                 'Immediate',
                 valueColor: Colors.green,
-                description: 'Your monthly savings immediately offset the upfront costs of refinancing.',
+                description:
+                    'Your monthly savings immediately offset the upfront costs of refinancing.',
               )
             else
               _buildResultRow(
@@ -1105,14 +1141,16 @@ class _ResultsSection extends StatelessWidget {
                 'Break-Even Point',
                 'N/A (Higher monthly payment)',
                 valueColor: Colors.red,
-                description: 'Since your new monthly payment is higher, there is no break-even point based on monthly savings alone.',
+                description:
+                    'Since your new monthly payment is higher, there is no break-even point based on monthly savings alone.',
               ),
             _buildResultRow(
               context,
               'Total Interest Saved',
               currencyFormat.format(totalSavings),
               valueColor: totalSavings > 0 ? Colors.green : Colors.red,
-              description: 'The total amount of interest you will save (or pay extra if negative) over the life of the loan, including all costs and opportunity costs.',
+              description:
+                  'The total amount of interest you will save (or pay extra if negative) over the life of the loan, including all costs and opportunity costs.',
             ),
             const SizedBox(height: 16),
             Center(
@@ -1120,13 +1158,15 @@ class _ResultsSection extends StatelessWidget {
                 onPressed: () {
                   showDialog(
                     context: context,
-                    builder: (context) => MonthlyBreakdownDialog(manager: manager),
+                    builder: (context) =>
+                        MonthlyBreakdownDialog(manager: manager),
                   );
                 },
                 icon: const Icon(Icons.table_chart),
                 label: const Text('See Breakdown'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 ),
               ),
             ),
@@ -1300,7 +1340,8 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
         Row(
           children: [
             if (widget.description != null && widget.buildInfoButton != null)
-              widget.buildInfoButton!(context, widget.label, widget.description!)
+              widget.buildInfoButton!(
+                  context, widget.label, widget.description!)
             else
               Text(widget.label, style: const TextStyle(fontSize: 20)),
             if (widget.variableName != null && widget.manager != null)
@@ -1340,7 +1381,8 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
                 }
                 _oldValue = null;
               },
-              label: '${widget.prefix ?? ''}${widget.value.toStringAsFixed(widget.prefix != null ? 0 : 2)}${widget.suffix ?? ''}',
+              label:
+                  '${widget.prefix ?? ''}${widget.value.toStringAsFixed(widget.prefix != null ? 0 : 2)}${widget.suffix ?? ''}',
               thumbColor: Theme.of(context).colorScheme.onPrimaryContainer,
               inactiveColor: Theme.of(context).colorScheme.primaryContainer,
             ),
@@ -1350,7 +1392,8 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
     );
   }
 
-  Widget _buildChartButton(BuildContext context, String variableName, RefinanceManager manager) {
+  Widget _buildChartButton(
+      BuildContext context, String variableName, RefinanceManager manager) {
     return ElevatedButton(
       onPressed: () {
         Navigator.push(
@@ -1365,7 +1408,8 @@ class _UndoableDoubleSliderState extends State<_UndoableDoubleSlider> {
                 divisions: widget.divisions,
                 manager: manager,
               ),
-              description: "This chart shows how ${widget.label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
+              description:
+                  "This chart shows how ${widget.label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
             ),
           ),
         );
@@ -1423,7 +1467,8 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
         Row(
           children: [
             if (widget.description != null && widget.buildInfoButton != null)
-              widget.buildInfoButton!(context, widget.label, widget.description!)
+              widget.buildInfoButton!(
+                  context, widget.label, widget.description!)
             else
               Text(widget.label, style: const TextStyle(fontSize: 20)),
             if (widget.variableName != null && widget.manager != null)
@@ -1441,7 +1486,9 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
                   : SliderInteraction.tapAndSlide,
             ),
             child: Slider(
-              value: widget.value.toDouble().clamp(widget.min.toDouble(), widget.max.toDouble()),
+              value: widget.value
+                  .toDouble()
+                  .clamp(widget.min.toDouble(), widget.max.toDouble()),
               min: widget.min.toDouble(),
               max: widget.max.toDouble(),
               divisions: widget.max - widget.min,
@@ -1474,7 +1521,8 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
     );
   }
 
-  Widget _buildChartButton(BuildContext context, String variableName, RefinanceManager manager) {
+  Widget _buildChartButton(
+      BuildContext context, String variableName, RefinanceManager manager) {
     return ElevatedButton(
       onPressed: () {
         Navigator.push(
@@ -1489,7 +1537,8 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
                 divisions: widget.max - widget.min,
                 manager: manager,
               ),
-              description: "This chart shows how ${widget.label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
+              description:
+                  "This chart shows how ${widget.label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
             ),
           ),
         );
@@ -1562,9 +1611,10 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
   Future<void> _calculateBreakdown() async {
     // Give the UI time to render the loading indicator
     await Future.delayed(const Duration(milliseconds: 50));
-    
+
     // Compute breakdown using async chunked calculation to avoid UI freeze
-    final breakdown = await RefinanceCalculations.calculateMonthlyBreakdownAsync(
+    final breakdown =
+        await RefinanceCalculations.calculateMonthlyBreakdownAsync(
       remainingBalance: widget.manager.remainingBalance,
       remainingTermMonths: widget.manager.remainingTermMonths,
       currentInterestRate: widget.manager.currentInterestRate,
@@ -1636,7 +1686,7 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
 
   Widget _buildTable(BuildContext context) {
     if (_breakdown == null) return const SizedBox();
-    
+
     final currencyFormat = NumberFormat.simpleCurrency();
 
     return Column(
@@ -1665,7 +1715,7 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
                   final month = _breakdown![index];
                   final isCumulativePositive = month.cumulativeSavings >= 0;
                   final isMonthlySavingsPositive = month.monthlySavings >= 0;
-                  
+
                   return _buildDataRow(
                     context: context,
                     month: month,

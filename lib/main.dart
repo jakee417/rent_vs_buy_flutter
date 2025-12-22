@@ -4,13 +4,9 @@ import 'package:finance_calculator/landing_page.dart';
 import 'package:finance_calculator/refinance_page.dart';
 import 'package:finance_calculator/rent_vs_buy_page.dart';
 import 'package:finance_calculator/rent_vs_buy_manager.dart';
-import 'package:flutter_web_plugins/url_strategy.dart';
 
 void main() {
-  usePathUrlStrategy();
-  // ignore: prefer_const_constructors
-  var pathUrlStrategy = PathUrlStrategy();
-  var uri = Uri.parse(pathUrlStrategy.getPath());
+  var uri = Uri.base;
   var rentVsBuyManager = RentVsBuyManager();
   rentVsBuyManager.onInit(uri);
   runApp(

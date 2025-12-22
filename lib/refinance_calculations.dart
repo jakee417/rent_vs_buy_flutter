@@ -81,13 +81,13 @@ class RefinanceCalculations {
   }
 
   static double calculateUpfrontCosts({
-    required double remainingBalance,
+    required double loanAmount,
     required double points,
     required double costsAndFees,
     required double additionalPrincipalPayment,
     required bool financeCosts,
   }) {
-    final pointsCost = remainingBalance * (points / 100);
+    final pointsCost = loanAmount * (points / 100);
     double upfrontCosts = pointsCost;
     if (!financeCosts) {
       upfrontCosts += costsAndFees;
@@ -156,7 +156,7 @@ class RefinanceCalculations {
     
     // Calculate upfront costs using static helper
     final upfrontCosts = calculateUpfrontCosts(
-      remainingBalance: remainingBalance,
+      loanAmount: newLoanAmount,
       points: points,
       costsAndFees: costsAndFees,
       additionalPrincipalPayment: additionalPrincipalPayment,
@@ -461,7 +461,7 @@ class RefinanceCalculations {
     
     // Calculate upfront costs
     final upfrontCosts = calculateUpfrontCosts(
-      remainingBalance: remainingBalance,
+      loanAmount: newLoanAmount,
       points: points,
       costsAndFees: costsAndFees,
       additionalPrincipalPayment: additionalPrincipalPayment,
@@ -509,6 +509,124 @@ class RefinanceCalculations {
       cumulativeSavings += monthlySavings;
       
       // Add opportunity cost if enabled (monthly impact)
+      if (includeOpportunityCost && upfrontCosts > 0) {
+        final monthlyInvestmentRate = investmentReturnRate / 100 / 12;
+        final opportunityCostThisMonth = upfrontCosts * monthlyInvestmentRate * math.pow(1 + monthlyInvestmentRate, month - 1);
+        cumulativeSavings -= opportunityCostThisMonth;
+      }
+      
+      breakdown.add(MonthlyBreakdown(
+        month: month,
+        currentLoanBalance: currentBalance,
+        currentLoanPayment: currentPayment,
+        currentLoanInterest: currentInterestPayment,
+        currentLoanPrincipal: currentPrincipalPayment,
+        newLoanBalance: newBalance,
+        newLoanPayment: newPayment,
+        newLoanInterest: newInterestPayment,
+        newLoanPrincipal: newPrincipalPayment,
+        monthlySavings: monthlySavings,
+        cumulativeSavings: cumulativeSavings,
+      ));
+    }
+    
+    return breakdown;
+  }
+
+  /// Calculate month-by-month breakdown asynchronously with chunking to avoid UI freeze
+  static Future<List<MonthlyBreakdown>> calculateMonthlyBreakdownAsync({
+    required double remainingBalance,
+    required int remainingTermMonths,
+    required double currentInterestRate,
+    required int newLoanTermYears,
+    required double newInterestRate,
+    required double points,
+    required double costsAndFees,
+    required double cashOutAmount,
+    required double additionalPrincipalPayment,
+    required bool financeCosts,
+    required double investmentReturnRate,
+    required bool includeOpportunityCost,
+  }) async {
+    final List<MonthlyBreakdown> breakdown = [];
+    
+    // Calculate monthly payments
+    final currentMonthlyPayment = calculateMonthlyPayment(
+      principal: remainingBalance,
+      annualInterestRate: currentInterestRate,
+      termMonths: remainingTermMonths,
+    );
+    
+    final newLoanAmount = calculateNewLoanAmount(
+      remainingBalance: remainingBalance,
+      cashOutAmount: cashOutAmount,
+      costsAndFees: costsAndFees,
+      additionalPrincipalPayment: additionalPrincipalPayment,
+      financeCosts: financeCosts,
+    );
+    
+    final newLoanTermMonths = newLoanTermYears * 12;
+    final newMonthlyPayment = calculateMonthlyPayment(
+      principal: newLoanAmount,
+      annualInterestRate: newInterestRate,
+      termMonths: newLoanTermMonths,
+    );
+    
+    // Calculate upfront costs
+    final upfrontCosts = calculateUpfrontCosts(
+      loanAmount: newLoanAmount,
+      points: points,
+      costsAndFees: costsAndFees,
+      additionalPrincipalPayment: additionalPrincipalPayment,
+      financeCosts: financeCosts,
+    );
+    
+    // Initialize balances
+    double currentBalance = remainingBalance;
+    double newBalance = newLoanAmount;
+    double cumulativeSavings = -upfrontCosts + cashOutAmount;
+    
+    final currentMonthlyRate = currentInterestRate / 100 / 12;
+    final newMonthlyRate = newInterestRate / 100 / 12;
+    
+    final maxMonths = math.max(remainingTermMonths, newLoanTermMonths);
+    
+    // Process in chunks of 12 months (1 year)
+    for (int month = 1; month <= maxMonths; month++) {
+      // Yield to event loop every 12 months to keep UI responsive
+      if (month % 12 == 0) {
+        await Future.delayed(Duration.zero);
+      }
+
+      // Current loan calculations
+      double currentInterestPayment = 0;
+      double currentPrincipalPayment = 0;
+      double currentPayment = 0;
+      
+      if (month <= remainingTermMonths && currentBalance > 0) {
+        currentInterestPayment = currentBalance * currentMonthlyRate;
+        currentPrincipalPayment = currentMonthlyPayment - currentInterestPayment;
+        currentPayment = currentMonthlyPayment;
+        currentBalance = math.max(0, currentBalance - currentPrincipalPayment);
+      }
+      
+      // New loan calculations
+      double newInterestPayment = 0;
+      double newPrincipalPayment = 0;
+      double newPayment = 0;
+      
+      if (month <= newLoanTermMonths && newBalance > 0) {
+        newInterestPayment = newBalance * newMonthlyRate;
+        newPrincipalPayment = newMonthlyPayment - newInterestPayment;
+        newPayment = newMonthlyPayment;
+        newBalance = math.max(0, newBalance - newPrincipalPayment);
+      }
+      
+      // Calculate savings for this month
+      final monthlySavings = currentPayment - newPayment;
+      cumulativeSavings += monthlySavings;
+      
+      // Add opportunity cost if enabled
       if (includeOpportunityCost && upfrontCosts > 0) {
         final monthlyInvestmentRate = investmentReturnRate / 100 / 12;
         final opportunityCostThisMonth = upfrontCosts * monthlyInvestmentRate * math.pow(1 + monthlyInvestmentRate, month - 1);

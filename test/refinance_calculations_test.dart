@@ -155,7 +155,7 @@ void main() {
     group('calculateUpfrontCosts', () {
       test('should calculate upfront costs with points and financing costs', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          remainingBalance: 200000,
+          loanAmount: 200000,
           points: 1.0,
           costsAndFees: 3000,
           additionalPrincipalPayment: 0,
@@ -169,7 +169,7 @@ void main() {
 
       test('should calculate upfront costs when NOT financing costs', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          remainingBalance: 200000,
+          loanAmount: 200000,
           points: 1.0,
           costsAndFees: 3000,
           additionalPrincipalPayment: 0,
@@ -182,7 +182,7 @@ void main() {
 
       test('should include additional principal payment', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          remainingBalance: 200000,
+          loanAmount: 200000,
           points: 0.5,
           costsAndFees: 3000,
           additionalPrincipalPayment: 10000,
@@ -195,7 +195,7 @@ void main() {
 
       test('should handle zero points', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          remainingBalance: 200000,
+          loanAmount: 200000,
           points: 0,
           costsAndFees: 3000,
           additionalPrincipalPayment: 5000,
@@ -208,7 +208,7 @@ void main() {
 
       test('should calculate 2 points correctly', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          remainingBalance: 250000,
+          loanAmount: 250000,
           points: 2.0,
           costsAndFees: 0,
           additionalPrincipalPayment: 0,

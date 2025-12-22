@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -1469,30 +1470,86 @@ class _UndoableIntSliderState extends State<_UndoableIntSlider> {
 }
 
 // Widget to display month-by-month breakdown
-class MonthlyBreakdownDialog extends StatelessWidget {
+class MonthlyBreakdownDialog extends StatefulWidget {
   final RefinanceManager manager;
 
   const MonthlyBreakdownDialog({super.key, required this.manager});
 
   @override
-  Widget build(BuildContext context) {
-    final breakdown = RefinanceCalculations.calculateMonthlyBreakdown(
-      remainingBalance: manager.remainingBalance,
-      remainingTermMonths: manager.remainingTermMonths,
-      currentInterestRate: manager.currentInterestRate,
-      newLoanTermYears: manager.newLoanTermYears,
-      newInterestRate: manager.newInterestRate,
-      points: manager.points,
-      costsAndFees: manager.costsAndFees,
-      cashOutAmount: manager.cashOutAmount,
-      additionalPrincipalPayment: manager.additionalPrincipalPayment,
-      financeCosts: manager.financeCosts,
-      investmentReturnRate: manager.investmentReturnRate,
-      includeOpportunityCost: manager.includeOpportunityCost,
+  State<MonthlyBreakdownDialog> createState() => _MonthlyBreakdownDialogState();
+}
+
+class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
+  List<MonthlyBreakdown>? _breakdown;
+  bool _isLoading = true;
+  final _headerController = ScrollController();
+  final _bodyController = ScrollController();
+  bool _isSyncing = false;
+  static const double _rowHeight = 50.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _headerController.addListener(_syncBodyToHeader);
+    _bodyController.addListener(_syncHeaderToBody);
+    _calculateBreakdown();
+  }
+
+  @override
+  void dispose() {
+    _headerController.dispose();
+    _bodyController.dispose();
+    super.dispose();
+  }
+
+  void _syncBodyToHeader() {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    if (_bodyController.hasClients) {
+      _bodyController.jumpTo(_headerController.offset);
+    }
+    _isSyncing = false;
+  }
+
+  void _syncHeaderToBody() {
+    if (_isSyncing) return;
+    _isSyncing = true;
+    if (_headerController.hasClients) {
+      _headerController.jumpTo(_bodyController.offset);
+    }
+    _isSyncing = false;
+  }
+
+  Future<void> _calculateBreakdown() async {
+    // Give the UI time to render the loading indicator
+    await Future.delayed(const Duration(milliseconds: 50));
+    
+    // Compute breakdown using async chunked calculation to avoid UI freeze
+    final breakdown = await RefinanceCalculations.calculateMonthlyBreakdownAsync(
+      remainingBalance: widget.manager.remainingBalance,
+      remainingTermMonths: widget.manager.remainingTermMonths,
+      currentInterestRate: widget.manager.currentInterestRate,
+      newLoanTermYears: widget.manager.newLoanTermYears,
+      newInterestRate: widget.manager.newInterestRate,
+      points: widget.manager.points,
+      costsAndFees: widget.manager.costsAndFees,
+      cashOutAmount: widget.manager.cashOutAmount,
+      additionalPrincipalPayment: widget.manager.additionalPrincipalPayment,
+      financeCosts: widget.manager.financeCosts,
+      investmentReturnRate: widget.manager.investmentReturnRate,
+      includeOpportunityCost: widget.manager.includeOpportunityCost,
     );
 
-    final currencyFormat = NumberFormat.simpleCurrency();
+    if (mounted) {
+      setState(() {
+        _breakdown = breakdown;
+        _isLoading = false;
+      });
+    }
+  }
 
+  @override
+  Widget build(BuildContext context) {
     return Dialog(
       child: Container(
         constraints: const BoxConstraints(maxWidth: 1000, maxHeight: 800),
@@ -1517,64 +1574,151 @@ class MonthlyBreakdownDialog extends StatelessWidget {
               ),
             ),
             const Divider(height: 1),
-            // Table
+            // Loading or Table
             Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(
-                      Theme.of(context).colorScheme.primaryContainer,
-                    ),
-                    columnSpacing: 16,
-                    columns: const [
-                      DataColumn(label: Text('Month', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Current\nPayment', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Current\nBalance', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('New\nPayment', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('New\nBalance', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Monthly\nSavings', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('Cumulative\nSavings', style: TextStyle(fontWeight: FontWeight.bold))),
-                    ],
-                    rows: breakdown.map((month) {
-                      final isCumulativePositive = month.cumulativeSavings >= 0;
-                      final isMonthlySavingsPositive = month.monthlySavings >= 0;
-                      
-                      return DataRow(
-                        cells: [
-                          DataCell(Text(month.month.toString())),
-                          DataCell(Text(currencyFormat.format(month.currentLoanPayment))),
-                          DataCell(Text(currencyFormat.format(month.currentLoanBalance))),
-                          DataCell(Text(currencyFormat.format(month.newLoanPayment))),
-                          DataCell(Text(currencyFormat.format(month.newLoanBalance))),
-                          DataCell(
-                            Text(
-                              currencyFormat.format(month.monthlySavings),
-                              style: TextStyle(
-                                color: isMonthlySavingsPositive ? Colors.green : Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                          DataCell(
-                            Text(
-                              currencyFormat.format(month.cumulativeSavings),
-                              style: TextStyle(
-                                color: isCumulativePositive ? Colors.green : Colors.red,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
+              child: _isLoading
+                  ? const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('Calculating breakdown...'),
                         ],
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ),
+                      ),
+                    )
+                  : _buildTable(context),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTable(BuildContext context) {
+    if (_breakdown == null) return const SizedBox();
+    
+    final currencyFormat = NumberFormat.simpleCurrency();
+
+    return Column(
+      children: [
+        // Fixed header
+        Container(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          child: SingleChildScrollView(
+            controller: _headerController,
+            scrollDirection: Axis.horizontal,
+            child: _buildHeaderRow(context),
+          ),
+        ),
+        const Divider(height: 1),
+        // Scrollable body
+        Expanded(
+          child: SingleChildScrollView(
+            controller: _bodyController,
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: 800, // Total width of all columns
+              child: ListView.builder(
+                itemExtent: _rowHeight,
+                itemCount: _breakdown!.length,
+                itemBuilder: (context, index) {
+                  final month = _breakdown![index];
+                  final isCumulativePositive = month.cumulativeSavings >= 0;
+                  final isMonthlySavingsPositive = month.monthlySavings >= 0;
+                  
+                  return _buildDataRow(
+                    context: context,
+                    month: month,
+                    currencyFormat: currencyFormat,
+                    isCumulativePositive: isCumulativePositive,
+                    isMonthlySavingsPositive: isMonthlySavingsPositive,
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeaderRow(BuildContext context) {
+    return Row(
+      children: [
+        _buildHeaderCell('Month', 80),
+        _buildHeaderCell('Current\nPayment', 120),
+        _buildHeaderCell('Current\nBalance', 120),
+        _buildHeaderCell('New\nPayment', 120),
+        _buildHeaderCell('New\nBalance', 120),
+        _buildHeaderCell('Monthly\nSavings', 120),
+        _buildHeaderCell('Cumulative\nSavings', 120),
+      ],
+    );
+  }
+
+  Widget _buildHeaderCell(String text, double width) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(12.0),
+      child: Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+
+  Widget _buildDataRow({
+    required BuildContext context,
+    required MonthlyBreakdown month,
+    required NumberFormat currencyFormat,
+    required bool isCumulativePositive,
+    required bool isMonthlySavingsPositive,
+  }) {
+    return Container(
+      height: _rowHeight,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          _buildDataCell(month.month.toString(), 80),
+          _buildDataCell(currencyFormat.format(month.currentLoanPayment), 120),
+          _buildDataCell(currencyFormat.format(month.currentLoanBalance), 120),
+          _buildDataCell(currencyFormat.format(month.newLoanPayment), 120),
+          _buildDataCell(currencyFormat.format(month.newLoanBalance), 120),
+          _buildDataCell(
+            currencyFormat.format(month.monthlySavings),
+            120,
+            color: isMonthlySavingsPositive ? Colors.green : Colors.red,
+          ),
+          _buildDataCell(
+            currencyFormat.format(month.cumulativeSavings),
+            120,
+            color: isCumulativePositive ? Colors.green : Colors.red,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataCell(String text, double width, {Color? color}) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(12.0),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: color != null ? FontWeight.bold : FontWeight.normal,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

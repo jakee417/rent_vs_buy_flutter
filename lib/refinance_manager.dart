@@ -156,9 +156,12 @@ class RefinanceManager extends ChangeNotifier {
     }
     amountFinanced -= _additionalPrincipalPayment;
     
-    // If we're not paying any fees upfront, APR equals the interest rate
+    // Points are always a prepaid finance charge
     final pointsCost = calculatePointsCost();
-    if (pointsCost == 0 && (_financeCosts || _costsAndFees == 0) && _additionalPrincipalPayment == 0) {
+    amountFinanced -= pointsCost;
+    
+    // If we're not paying any fees upfront, APR equals the interest rate
+    if (pointsCost == 0 && _costsAndFees == 0) {
       return _newInterestRate;
     }
     
@@ -196,12 +199,12 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculatePointsCost() {
-    return _remainingBalance * (_points / 100);
+    return calculateNewLoanAmount() * (_points / 100);
   }
 
   double calculateTotalUpfrontCosts() {
     return RefinanceCalculations.calculateUpfrontCosts(
-      remainingBalance: _remainingBalance,
+      loanAmount: calculateNewLoanAmount(),
       points: _points,
       costsAndFees: _costsAndFees,
       additionalPrincipalPayment: _additionalPrincipalPayment,

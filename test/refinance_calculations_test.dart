@@ -54,25 +54,23 @@ void main() {
     });
 
     group('calculateNewLoanAmount', () {
-      test('should calculate loan amount when financing costs', () {
+      test('should calculate loan amount with financed fees', () {
         final loanAmount = RefinanceCalculations.calculateNewLoanAmount(
           remainingBalance: 200000,
           cashOutAmount: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
         );
 
         expect(loanAmount, equals(203000));
       });
 
-      test('should calculate loan amount when NOT financing costs', () {
+      test('should calculate loan amount without financed fees', () {
         final loanAmount = RefinanceCalculations.calculateNewLoanAmount(
           remainingBalance: 200000,
           cashOutAmount: 0,
-          costsAndFees: 3000,
+          financedFees: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: false,
         );
 
         expect(loanAmount, equals(200000));
@@ -82,9 +80,8 @@ void main() {
         final loanAmount = RefinanceCalculations.calculateNewLoanAmount(
           remainingBalance: 200000,
           cashOutAmount: 50000,
-          costsAndFees: 3000,
+          financedFees: 3000,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
         );
 
         expect(loanAmount, equals(253000));
@@ -94,9 +91,8 @@ void main() {
         final loanAmount = RefinanceCalculations.calculateNewLoanAmount(
           remainingBalance: 200000,
           cashOutAmount: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
           additionalPrincipalPayment: 10000,
-          financeCosts: true,
         );
 
         expect(loanAmount, equals(193000));
@@ -106,9 +102,8 @@ void main() {
         final loanAmount = RefinanceCalculations.calculateNewLoanAmount(
           remainingBalance: 200000,
           cashOutAmount: 25000,
-          costsAndFees: 5000,
+          financedFees: 0,
           additionalPrincipalPayment: 15000,
-          financeCosts: false,
         );
 
         // 200000 + 25000 - 15000 = 210000 (costs not financed)
@@ -153,30 +148,29 @@ void main() {
     });
 
     group('calculateUpfrontCosts', () {
-      test('should calculate upfront costs with points and financing costs', () {
+      test('should calculate upfront costs with points and no upfront fees',
+          () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
           loanAmount: 200000,
           points: 1.0,
-          costsAndFees: 3000,
+          upfrontFees: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
         );
 
         // Points: 200000 * 0.01 = 2000
-        // Costs financed, so only points: 2000
+        // No upfront fees, so only points: 2000
         expect(upfrontCosts, equals(2000));
       });
 
-      test('should calculate upfront costs when NOT financing costs', () {
+      test('should calculate upfront costs with upfront fees', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
           loanAmount: 200000,
           points: 1.0,
-          costsAndFees: 3000,
+          upfrontFees: 3000,
           additionalPrincipalPayment: 0,
-          financeCosts: false,
         );
 
-        // Points: 2000 + Costs: 3000 = 5000
+        // Points: 2000 + Upfront fees: 3000 = 5000
         expect(upfrontCosts, equals(5000));
       });
 
@@ -184,9 +178,8 @@ void main() {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
           loanAmount: 200000,
           points: 0.5,
-          costsAndFees: 3000,
+          upfrontFees: 0,
           additionalPrincipalPayment: 10000,
-          financeCosts: true,
         );
 
         // Points: 1000 + Additional: 10000 = 11000
@@ -197,9 +190,8 @@ void main() {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
           loanAmount: 200000,
           points: 0,
-          costsAndFees: 3000,
+          upfrontFees: 3000,
           additionalPrincipalPayment: 5000,
-          financeCosts: false,
         );
 
         // 0 + 3000 + 5000 = 8000
@@ -210,9 +202,8 @@ void main() {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
           loanAmount: 250000,
           points: 2.0,
-          costsAndFees: 0,
+          upfrontFees: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
         );
 
         // 250000 * 0.02 = 5000
@@ -277,10 +268,10 @@ void main() {
           newLoanTermYears: 20, // Same term
           newInterestRate: 3.5,
           points: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
+          upfrontFees: 0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
         );
@@ -289,7 +280,8 @@ void main() {
         expect(savings, greaterThan(0));
       });
 
-      test('should show negative savings when extending term significantly', () {
+      test('should show negative savings when extending term significantly',
+          () {
         final savings = RefinanceCalculations.calculateTotalCostDifference(
           remainingBalance: 200000,
           remainingTermMonths: 60, // 5 years remaining
@@ -297,10 +289,10 @@ void main() {
           newLoanTermYears: 30,
           newInterestRate: 3.8,
           points: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
+          upfrontFees: 0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
         );
@@ -310,17 +302,18 @@ void main() {
       });
 
       test('should include opportunity cost when enabled', () {
-        final savingsWithout = RefinanceCalculations.calculateTotalCostDifference(
+        final savingsWithout =
+            RefinanceCalculations.calculateTotalCostDifference(
           remainingBalance: 200000,
           remainingTermMonths: 240,
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
           points: 1.0, // 2000 upfront
-          costsAndFees: 3000,
+          financedFees: 0,
+          upfrontFees: 3000, // Pay 3000 upfront
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: false, // Pay 3000 upfront
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
         );
@@ -332,10 +325,10 @@ void main() {
           newLoanTermYears: 30,
           newInterestRate: 3.5,
           points: 1.0,
-          costsAndFees: 3000,
+          financedFees: 0,
+          upfrontFees: 3000,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: false,
           investmentReturnRate: 7.0,
           includeOpportunityCost: true,
         );
@@ -352,10 +345,10 @@ void main() {
           newLoanTermYears: 30,
           newInterestRate: 3.5,
           points: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
+          upfrontFees: 0,
           cashOutAmount: 50000,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
         );
@@ -365,17 +358,18 @@ void main() {
       });
 
       test('should handle additional principal payment', () {
-        final savingsWithout = RefinanceCalculations.calculateTotalCostDifference(
+        final savingsWithout =
+            RefinanceCalculations.calculateTotalCostDifference(
           remainingBalance: 200000,
           remainingTermMonths: 240,
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
           points: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
+          upfrontFees: 0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
-          financeCosts: true,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
         );
@@ -387,10 +381,10 @@ void main() {
           newLoanTermYears: 30,
           newInterestRate: 3.5,
           points: 0,
-          costsAndFees: 3000,
+          financedFees: 3000,
+          upfrontFees: 0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 20000,
-          financeCosts: true,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
         );

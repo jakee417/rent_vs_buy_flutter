@@ -18,10 +18,10 @@ class RefinanceManager extends ChangeNotifier {
   int _newLoanTermYears = 30;
   double _newInterestRate = 3.5;
   double _points = 0.0;
-  double _costsAndFees = 3000.0;
+  double _financedFees = 3000.0; // Fees added to loan principal
+  double _upfrontFees = 0.0; // Fees paid at closing
   double _cashOutAmount = 0.0;
   double _additionalPrincipalPayment = 0.0;
-  bool _financeCosts = true; // true = finance, false = pay upfront
   double _investmentReturnRate = 7.0; // Annual return rate for opportunity cost
   bool _includeOpportunityCost = true; // Whether to include opportunity cost in total savings
 
@@ -34,10 +34,10 @@ class RefinanceManager extends ChangeNotifier {
   int get newLoanTermYears => _newLoanTermYears;
   double get newInterestRate => _newInterestRate;
   double get points => _points;
-  double get costsAndFees => _costsAndFees;
+  double get financedFees => _financedFees;
+  double get upfrontFees => _upfrontFees;
   double get cashOutAmount => _cashOutAmount;
   double get additionalPrincipalPayment => _additionalPrincipalPayment;
-  bool get financeCosts => _financeCosts;
   double get investmentReturnRate => _investmentReturnRate;
   bool get includeOpportunityCost => _includeOpportunityCost;
 
@@ -79,8 +79,14 @@ class RefinanceManager extends ChangeNotifier {
     _saveToPreferences();
   }
 
-  set costsAndFees(double value) {
-    _costsAndFees = value;
+  set financedFees(double value) {
+    _financedFees = value;
+    notifyListeners();
+    _saveToPreferences();
+  }
+
+  set upfrontFees(double value) {
+    _upfrontFees = value;
     notifyListeners();
     _saveToPreferences();
   }
@@ -93,12 +99,6 @@ class RefinanceManager extends ChangeNotifier {
 
   set additionalPrincipalPayment(double value) {
     _additionalPrincipalPayment = value;
-    notifyListeners();
-    _saveToPreferences();
-  }
-
-  set financeCosts(bool value) {
-    _financeCosts = value;
     notifyListeners();
     _saveToPreferences();
   }
@@ -120,9 +120,8 @@ class RefinanceManager extends ChangeNotifier {
     return RefinanceCalculations.calculateNewLoanAmount(
       remainingBalance: _remainingBalance,
       cashOutAmount: _cashOutAmount,
-      costsAndFees: _costsAndFees,
+      financedFees: _financedFees,
       additionalPrincipalPayment: _additionalPrincipalPayment,
-      financeCosts: _financeCosts,
     );
   }
 
@@ -150,10 +149,8 @@ class RefinanceManager extends ChangeNotifier {
     
     // Calculate the actual amount received (principal minus upfront costs)
     double amountFinanced = _remainingBalance + _cashOutAmount;
-    if (!_financeCosts) {
-      // If not financing costs, they reduce the amount received
-      amountFinanced -= _costsAndFees;
-    }
+    // Upfront fees reduce the amount received
+    amountFinanced -= _upfrontFees;
     amountFinanced -= _additionalPrincipalPayment;
     
     // Points are always a prepaid finance charge
@@ -161,7 +158,7 @@ class RefinanceManager extends ChangeNotifier {
     amountFinanced -= pointsCost;
     
     // If we're not paying any fees upfront, APR equals the interest rate
-    if (pointsCost == 0 && _costsAndFees == 0) {
+    if (pointsCost == 0 && _upfrontFees == 0) {
       return _newInterestRate;
     }
     
@@ -206,9 +203,8 @@ class RefinanceManager extends ChangeNotifier {
     return RefinanceCalculations.calculateUpfrontCosts(
       loanAmount: calculateNewLoanAmount(),
       points: _points,
-      costsAndFees: _costsAndFees,
+      upfrontFees: _upfrontFees,
       additionalPrincipalPayment: _additionalPrincipalPayment,
-      financeCosts: _financeCosts,
     );
   }
 
@@ -258,10 +254,10 @@ class RefinanceManager extends ChangeNotifier {
       newLoanTermYears: _newLoanTermYears,
       newInterestRate: _newInterestRate,
       points: _points,
-      costsAndFees: _costsAndFees,
+      financedFees: _financedFees,
+      upfrontFees: _upfrontFees,
       cashOutAmount: _cashOutAmount,
       additionalPrincipalPayment: _additionalPrincipalPayment,
-      financeCosts: _financeCosts,
       investmentReturnRate: _investmentReturnRate,
       includeOpportunityCost: _includeOpportunityCost,
     );
@@ -295,10 +291,10 @@ class RefinanceManager extends ChangeNotifier {
     _newLoanTermYears = 30;
     _newInterestRate = 3.5;
     _points = 0.0;
-    _costsAndFees = 3000.0;
+    _financedFees = 3000.0;
+    _upfrontFees = 0.0;
     _cashOutAmount = 0.0;
     _additionalPrincipalPayment = 0.0;
-    _financeCosts = true;
     _investmentReturnRate = 7.0;
     _includeOpportunityCost = true;
     notifyListeners();
@@ -313,10 +309,10 @@ class RefinanceManager extends ChangeNotifier {
     await preferences.setInt('refinance_newLoanTermYears', _newLoanTermYears);
     await preferences.setDouble('refinance_newInterestRate', _newInterestRate);
     await preferences.setDouble('refinance_points', _points);
-    await preferences.setDouble('refinance_costsAndFees', _costsAndFees);
+    await preferences.setDouble('refinance_financedFees', _financedFees);
+    await preferences.setDouble('refinance_upfrontFees', _upfrontFees);
     await preferences.setDouble('refinance_cashOutAmount', _cashOutAmount);
     await preferences.setDouble('refinance_additionalPrincipalPayment', _additionalPrincipalPayment);
-    await preferences.setBool('refinance_financeCosts', _financeCosts);
     await preferences.setDouble('refinance_investmentReturnRate', _investmentReturnRate);
     await preferences.setBool('refinance_includeOpportunityCost', _includeOpportunityCost);
   }
@@ -329,10 +325,10 @@ class RefinanceManager extends ChangeNotifier {
     _newLoanTermYears = await preferences.getInt('refinance_newLoanTermYears') ?? 30;
     _newInterestRate = await preferences.getDouble('refinance_newInterestRate') ?? 3.5;
     _points = await preferences.getDouble('refinance_points') ?? 0.0;
-    _costsAndFees = await preferences.getDouble('refinance_costsAndFees') ?? 3000.0;
+    _financedFees = await preferences.getDouble('refinance_financedFees') ?? 3000.0;
+    _upfrontFees = await preferences.getDouble('refinance_upfrontFees') ?? 0.0;
     _cashOutAmount = await preferences.getDouble('refinance_cashOutAmount') ?? 0.0;
     _additionalPrincipalPayment = await preferences.getDouble('refinance_additionalPrincipalPayment') ?? 0.0;
-    _financeCosts = await preferences.getBool('refinance_financeCosts') ?? true;
     _investmentReturnRate = await preferences.getDouble('refinance_investmentReturnRate') ?? 7.0;
     _includeOpportunityCost = await preferences.getBool('refinance_includeOpportunityCost') ?? true;
     notifyListeners();

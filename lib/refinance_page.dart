@@ -722,17 +722,33 @@ class _NewLoanSection extends StatelessWidget {
             _buildInputFieldWithUndo(
               context: context,
               manager: manager,
-              label: 'Costs and Fees',
-              value: context.watch<RefinanceManager>().costsAndFees,
-              onChanged: (value) => manager.costsAndFees = value,
+              label: 'Financed Fees',
+              value: context.watch<RefinanceManager>().financedFees,
+              onChanged: (value) => manager.financedFees = value,
               prefix: '\$',
               min: 0,
               max: 20000,
               divisions: 200,
               description:
-                  'Closing costs including appraisal, title insurance, origination fees, etc. Typical refinance costs range from 2-5% of the loan amount. You can choose to finance these or pay upfront.',
+                  'Closing costs that are added to your loan principal (financed). These increase your loan amount and total interest paid, but reduce upfront cash needed. Common fees include appraisal, title insurance, and origination fees.',
               typicalValue: '\$3,000-\$5,000',
-              variableName: 'costsAndFees',
+              variableName: 'financedFees',
+            ),
+            const SizedBox(height: 12),
+            _buildInputFieldWithUndo(
+              context: context,
+              manager: manager,
+              label: 'Upfront Fees',
+              value: context.watch<RefinanceManager>().upfrontFees,
+              onChanged: (value) => manager.upfrontFees = value,
+              prefix: '\$',
+              min: 0,
+              max: 20000,
+              divisions: 200,
+              description:
+                  'Closing costs that you pay at closing (not financed). These reduce your loan amount but require cash upfront. The upfront payment has an opportunity cost since you could have invested that money instead.',
+              typicalValue: '\$0',
+              variableName: 'upfrontFees',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -765,30 +781,6 @@ class _NewLoanSection extends StatelessWidget {
                   'Extra principal you pay upfront when refinancing to reduce the new loan amount. This lowers your monthly payment and total interest, but has an opportunity cost since the money could be invested instead.',
               typicalValue: '\$0',
               variableName: 'additionalPrincipalPayment',
-            ),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-            _buildSwitchField(
-              context: context,
-              manager: manager,
-              title: 'Finance Costs and Fees',
-              value: context.watch<RefinanceManager>().financeCosts,
-              onChanged: (value) {
-                final oldValue = manager.financeCosts;
-                manager.financeCosts = value;
-                manager.changes.add(
-                  Change(
-                    oldValue,
-                    () => manager.financeCosts = value,
-                    (old) => manager.financeCosts = old,
-                  ),
-                );
-              },
-              subtitle: null,
-              description:
-                  'Choose whether to finance the closing costs (add them to your loan amount) or pay them upfront. Financing costs increases your loan balance and total interest paid, but reduces upfront cash needed.',
-              typicalValue: 'True - most people finance costs',
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -1101,12 +1093,10 @@ class _ResultsSection extends StatelessWidget {
               'Total Upfront Costs',
               currencyFormat.format(upfrontCosts),
               description: manager.additionalPrincipalPayment > 0
-                  ? (manager.financeCosts
-                      ? 'Includes ${currencyFormat.format(manager.additionalPrincipalPayment)} additional principal payment and points. Costs and fees are being added to the loan principal.'
-                      : 'Includes ${currencyFormat.format(manager.additionalPrincipalPayment)} additional principal payment, plus points, costs, and fees.')
-                  : (manager.financeCosts
-                      ? 'The upfront points cost. Costs and fees are being added to the loan principal.'
-                      : 'The total amount you need to pay upfront, including points, costs, and fees.'),
+                  ? 'Includes ${currencyFormat.format(manager.additionalPrincipalPayment)} additional principal payment, ${currencyFormat.format(manager.upfrontFees)} upfront fees, and points. The financed fees (${currencyFormat.format(manager.financedFees)}) are added to the loan principal.'
+                  : (manager.upfrontFees > 0
+                      ? 'Includes ${currencyFormat.format(manager.upfrontFees)} upfront fees and points. The financed fees (${currencyFormat.format(manager.financedFees)}) are added to the loan principal.'
+                      : 'The upfront points cost. The financed fees (${currencyFormat.format(manager.financedFees)}) are added to the loan principal.'),
             ),
             if (opportunityCost > 0)
               _buildResultRow(
@@ -1621,10 +1611,10 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
       newLoanTermYears: widget.manager.newLoanTermYears,
       newInterestRate: widget.manager.newInterestRate,
       points: widget.manager.points,
-      costsAndFees: widget.manager.costsAndFees,
+      financedFees: widget.manager.financedFees,
+      upfrontFees: widget.manager.upfrontFees,
       cashOutAmount: widget.manager.cashOutAmount,
       additionalPrincipalPayment: widget.manager.additionalPrincipalPayment,
-      financeCosts: widget.manager.financeCosts,
       investmentReturnRate: widget.manager.investmentReturnRate,
       includeOpportunityCost: widget.manager.includeOpportunityCost,
     );

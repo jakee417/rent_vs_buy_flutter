@@ -1,5 +1,5 @@
-name: rent_vs_buy
-description: "A new Flutter project."
+name: finance_calculator
+description: "A suite of financial calculators."
 
 # Prevent accidental publishing to pub.dev.
 publish_to: "none"

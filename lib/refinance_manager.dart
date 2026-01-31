@@ -23,7 +23,11 @@ class RefinanceManager extends ChangeNotifier {
   double _cashOutAmount = 0.0;
   double _additionalPrincipalPayment = 0.0;
   double _investmentReturnRate = 7.0; // Annual return rate for opportunity cost
-  bool _includeOpportunityCost = true; // Whether to include opportunity cost in total savings
+  bool _includeOpportunityCost =
+      true; // Whether to include opportunity cost in total savings
+
+  // Home sale simulation
+  int _monthsUntilSale = 120; // Months until home is sold (0-360)
 
   // Getters for current loan
   double get remainingBalance => _remainingBalance;
@@ -40,6 +44,7 @@ class RefinanceManager extends ChangeNotifier {
   double get additionalPrincipalPayment => _additionalPrincipalPayment;
   double get investmentReturnRate => _investmentReturnRate;
   bool get includeOpportunityCost => _includeOpportunityCost;
+  int get monthsUntilSale => _monthsUntilSale;
 
   // Setters for current loan
   set remainingBalance(double value) {
@@ -115,6 +120,12 @@ class RefinanceManager extends ChangeNotifier {
     _saveToPreferences();
   }
 
+  set monthsUntilSale(int value) {
+    _monthsUntilSale = value;
+    notifyListeners();
+    _saveToPreferences();
+  }
+
   // Calculation methods
   double calculateNewLoanAmount() {
     return RefinanceCalculations.calculateNewLoanAmount(
@@ -146,52 +157,55 @@ class RefinanceManager extends ChangeNotifier {
   double calculateNewLoanAPR() {
     final monthlyPayment = calculateNewMonthlyPayment();
     final termMonths = _newLoanTermYears * 12;
-    
+
     // Calculate the actual amount received (principal minus upfront costs)
     double amountFinanced = _remainingBalance + _cashOutAmount;
     // Upfront fees reduce the amount received
     amountFinanced -= _upfrontFees;
     amountFinanced -= _additionalPrincipalPayment;
-    
+
     // Points are always a prepaid finance charge
     final pointsCost = calculatePointsCost();
     amountFinanced -= pointsCost;
-    
+
     // If we're not paying any fees upfront, APR equals the interest rate
     if (pointsCost == 0 && _upfrontFees == 0) {
       return _newInterestRate;
     }
-    
+
     // Use Newton-Raphson method to solve for APR
     // We need to find the rate where: amountFinanced = monthlyPayment * [(1 - (1 + r)^-n) / r]
     double apr = _newInterestRate; // Start with nominal rate
     const maxIterations = 100;
     const tolerance = 0.0001;
-    
+
     for (int i = 0; i < maxIterations; i++) {
       final monthlyRate = apr / 100 / 12;
       if (monthlyRate == 0) break;
-      
+
       final onePlusR = 1 + monthlyRate;
-      final discountFactor = (1 - math.pow(onePlusR, -termMonths)) / monthlyRate;
+      final discountFactor =
+          (1 - math.pow(onePlusR, -termMonths)) / monthlyRate;
       final pv = monthlyPayment * discountFactor;
       final error = pv - amountFinanced;
-      
+
       if (error.abs() < tolerance) break;
-      
+
       // Calculate derivative for Newton-Raphson
-      final dPV = monthlyPayment * (
-        (termMonths * math.pow(onePlusR, -termMonths - 1)) / monthlyRate +
-        (math.pow(onePlusR, -termMonths) - 1) / (monthlyRate * monthlyRate)
-      ) / 12 / 100;
-      
+      final dPV = monthlyPayment *
+          ((termMonths * math.pow(onePlusR, -termMonths - 1)) / monthlyRate +
+              (math.pow(onePlusR, -termMonths) - 1) /
+                  (monthlyRate * monthlyRate)) /
+          12 /
+          100;
+
       apr = apr - error / dPV;
-      
+
       // Keep APR in reasonable bounds
       if (apr < 0) apr = 0.1;
       if (apr > 50) apr = 50;
     }
-    
+
     return apr;
   }
 
@@ -260,6 +274,7 @@ class RefinanceManager extends ChangeNotifier {
       additionalPrincipalPayment: _additionalPrincipalPayment,
       investmentReturnRate: _investmentReturnRate,
       includeOpportunityCost: _includeOpportunityCost,
+      monthsUntilSale: _monthsUntilSale,
     );
   }
 
@@ -297,40 +312,61 @@ class RefinanceManager extends ChangeNotifier {
     _additionalPrincipalPayment = 0.0;
     _investmentReturnRate = 7.0;
     _includeOpportunityCost = true;
+    _monthsUntilSale = 120;
     notifyListeners();
     _saveToPreferences();
   }
 
   // Save all values to SharedPreferences
   void _saveToPreferences() async {
-    await preferences.setDouble('refinance_remainingBalance', _remainingBalance);
-    await preferences.setDouble('refinance_currentInterestRate', _currentInterestRate);
-    await preferences.setInt('refinance_remainingTermMonths', _remainingTermMonths);
+    await preferences.setDouble(
+        'refinance_remainingBalance', _remainingBalance);
+    await preferences.setDouble(
+        'refinance_currentInterestRate', _currentInterestRate);
+    await preferences.setInt(
+        'refinance_remainingTermMonths', _remainingTermMonths);
     await preferences.setInt('refinance_newLoanTermYears', _newLoanTermYears);
     await preferences.setDouble('refinance_newInterestRate', _newInterestRate);
     await preferences.setDouble('refinance_points', _points);
     await preferences.setDouble('refinance_financedFees', _financedFees);
     await preferences.setDouble('refinance_upfrontFees', _upfrontFees);
     await preferences.setDouble('refinance_cashOutAmount', _cashOutAmount);
-    await preferences.setDouble('refinance_additionalPrincipalPayment', _additionalPrincipalPayment);
-    await preferences.setDouble('refinance_investmentReturnRate', _investmentReturnRate);
-    await preferences.setBool('refinance_includeOpportunityCost', _includeOpportunityCost);
+    await preferences.setDouble(
+        'refinance_additionalPrincipalPayment', _additionalPrincipalPayment);
+    await preferences.setDouble(
+        'refinance_investmentReturnRate', _investmentReturnRate);
+    await preferences.setBool(
+        'refinance_includeOpportunityCost', _includeOpportunityCost);
+    await preferences.setInt('refinance_monthsUntilSale', _monthsUntilSale);
   }
 
   // Load values from SharedPreferences
   Future<void> loadFromPreferences() async {
-    _remainingBalance = await preferences.getDouble('refinance_remainingBalance') ?? 200000.0;
-    _currentInterestRate = await preferences.getDouble('refinance_currentInterestRate') ?? 4.5;
-    _remainingTermMonths = await preferences.getInt('refinance_remainingTermMonths') ?? 240;
-    _newLoanTermYears = await preferences.getInt('refinance_newLoanTermYears') ?? 30;
-    _newInterestRate = await preferences.getDouble('refinance_newInterestRate') ?? 3.5;
+    _remainingBalance =
+        await preferences.getDouble('refinance_remainingBalance') ?? 200000.0;
+    _currentInterestRate =
+        await preferences.getDouble('refinance_currentInterestRate') ?? 4.5;
+    _remainingTermMonths =
+        await preferences.getInt('refinance_remainingTermMonths') ?? 240;
+    _newLoanTermYears =
+        await preferences.getInt('refinance_newLoanTermYears') ?? 30;
+    _newInterestRate =
+        await preferences.getDouble('refinance_newInterestRate') ?? 3.5;
     _points = await preferences.getDouble('refinance_points') ?? 0.0;
-    _financedFees = await preferences.getDouble('refinance_financedFees') ?? 3000.0;
+    _financedFees =
+        await preferences.getDouble('refinance_financedFees') ?? 3000.0;
     _upfrontFees = await preferences.getDouble('refinance_upfrontFees') ?? 0.0;
-    _cashOutAmount = await preferences.getDouble('refinance_cashOutAmount') ?? 0.0;
-    _additionalPrincipalPayment = await preferences.getDouble('refinance_additionalPrincipalPayment') ?? 0.0;
-    _investmentReturnRate = await preferences.getDouble('refinance_investmentReturnRate') ?? 7.0;
-    _includeOpportunityCost = await preferences.getBool('refinance_includeOpportunityCost') ?? true;
+    _cashOutAmount =
+        await preferences.getDouble('refinance_cashOutAmount') ?? 0.0;
+    _additionalPrincipalPayment =
+        await preferences.getDouble('refinance_additionalPrincipalPayment') ??
+            0.0;
+    _investmentReturnRate =
+        await preferences.getDouble('refinance_investmentReturnRate') ?? 7.0;
+    _includeOpportunityCost =
+        await preferences.getBool('refinance_includeOpportunityCost') ?? true;
+    _monthsUntilSale =
+        await preferences.getInt('refinance_monthsUntilSale') ?? 120;
     notifyListeners();
   }
 
@@ -351,4 +387,3 @@ class RefinanceManager extends ChangeNotifier {
     );
   }
 }
-

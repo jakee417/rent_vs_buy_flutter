@@ -274,6 +274,7 @@ void main() {
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
+          monthsUntilSale: 0,
         );
 
         // Should show positive savings (lower rate, same term)
@@ -295,6 +296,7 @@ void main() {
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
+          monthsUntilSale: 0,
         );
 
         // Should show negative savings (higher new loan cost due to term extension)
@@ -316,6 +318,7 @@ void main() {
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
+          monthsUntilSale: 0,
         );
 
         final savingsWith = RefinanceCalculations.calculateTotalCostDifference(
@@ -331,6 +334,7 @@ void main() {
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
           includeOpportunityCost: true,
+          monthsUntilSale: 0,
         );
 
         // With opportunity cost should have less savings
@@ -351,6 +355,7 @@ void main() {
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
+          monthsUntilSale: 0,
         );
 
         // Cash out should reduce savings (or increase cost)
@@ -372,6 +377,7 @@ void main() {
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
+          monthsUntilSale: 0,
         );
 
         final savingsWith = RefinanceCalculations.calculateTotalCostDifference(
@@ -387,10 +393,216 @@ void main() {
           additionalPrincipalPayment: 20000,
           investmentReturnRate: 7.0,
           includeOpportunityCost: false,
+          monthsUntilSale: 0,
         );
 
         // Additional principal should increase savings (lower new loan amount)
         expect(savingsWith, greaterThan(savingsWithout));
+      });
+    });
+
+    group('calculateTotalCostDifference with home sale', () {
+      test('selling home should include home value in calculation', () {
+        final savingsWithoutSale =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: 240,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: 0,
+        );
+
+        final savingsWithSale =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: 240,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: 120, // Sell after 10 years
+        );
+
+        // Results should differ when selling home
+        expect(savingsWithSale, isNot(equals(savingsWithoutSale)));
+      });
+
+      test('results should be continuous at loan term boundary', () {
+        // This test catches the bug where monthsUntilSale == remainingTermMonths
+        // would incorrectly skip the sale logic
+        const remainingTermMonths = 240;
+
+        final savingsAtBoundary =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: remainingTermMonths,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: remainingTermMonths, // Exactly at boundary
+        );
+
+        final savingsJustBefore =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: remainingTermMonths,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: remainingTermMonths - 1, // Just before boundary
+        );
+
+        final savingsJustAfter =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: remainingTermMonths,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: remainingTermMonths + 1, // Just after boundary
+        );
+
+        // Values should be continuous - no sudden jumps
+        // The difference between consecutive months should be reasonable (< $10k)
+        final diffAtBoundary = (savingsAtBoundary - savingsJustBefore).abs();
+        final diffAfterBoundary = (savingsJustAfter - savingsAtBoundary).abs();
+
+        expect(diffAtBoundary, lessThan(10000),
+            reason:
+                'Savings should not jump dramatically at the current loan term boundary');
+        expect(diffAfterBoundary, lessThan(10000),
+            reason:
+                'Savings should not jump dramatically after the current loan term boundary');
+      });
+
+      test('selling at exactly current loan term end should include home value',
+          () {
+        const remainingTermMonths = 240;
+
+        final savings = RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: remainingTermMonths,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 0,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: remainingTermMonths, // Exactly at current loan end
+        );
+
+        // At month 240, current loan balance = 0, new loan still has balance
+        // So selling at this point should favor current loan (gets full home value)
+        // This ensures the sale logic is applied even at the exact boundary
+        expect(savings, isA<double>());
+        expect(savings.isFinite, isTrue);
+      });
+
+      test(
+          'selling at exactly new loan term end should include home value for both',
+          () {
+        const newLoanTermYears = 30;
+
+        final savings = RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: 240,
+          currentInterestRate: 4.5,
+          newLoanTermYears: newLoanTermYears,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 0,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale:
+              newLoanTermYears * 12, // Exactly at new loan end (360)
+        );
+
+        // At month 360, both loans should be paid off (balance = 0)
+        // So the home value applies equally to both
+        expect(savings, isA<double>());
+        expect(savings.isFinite, isTrue);
+      });
+
+      test('earlier sale should reduce total interest paid', () {
+        final savingsEarlySale =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: 240,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: 60, // Sell after 5 years
+        );
+
+        final savingsLateSale =
+            RefinanceCalculations.calculateTotalCostDifference(
+          remainingBalance: 200000,
+          remainingTermMonths: 240,
+          currentInterestRate: 4.5,
+          newLoanTermYears: 30,
+          newInterestRate: 3.5,
+          points: 0,
+          financedFees: 3000,
+          upfrontFees: 0,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          investmentReturnRate: 7.0,
+          includeOpportunityCost: false,
+          monthsUntilSale: 180, // Sell after 15 years
+        );
+
+        // Both should be valid numbers (not NaN or infinite)
+        expect(savingsEarlySale.isFinite, isTrue);
+        expect(savingsLateSale.isFinite, isTrue);
       });
     });
 

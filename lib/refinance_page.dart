@@ -98,6 +98,10 @@ class RefinanceView extends StatelessWidget {
             SizedBox(height: 24),
             _NewLoanSection(),
             SizedBox(height: 24),
+            _InvestmentSection(),
+            SizedBox(height: 24),
+            _HomeSaleSection(),
+            SizedBox(height: 24),
             _ResultsSection(),
           ],
         ),
@@ -782,44 +786,6 @@ class _NewLoanSection extends StatelessWidget {
               typicalValue: '\$0',
               variableName: 'additionalPrincipalPayment',
             ),
-            const SizedBox(height: 12),
-            _buildInputFieldWithUndo(
-              context: context,
-              manager: manager,
-              label: 'Investment Return Rate',
-              value: context.watch<RefinanceManager>().investmentReturnRate,
-              onChanged: (value) => manager.investmentReturnRate = value,
-              suffix: '%',
-              min: 0.0,
-              max: 20.0,
-              divisions: 200,
-              description:
-                  'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
-              typicalValue: '7%',
-              variableName: 'investmentReturnRate',
-            ),
-            const SizedBox(height: 12),
-            _buildSwitchField(
-              context: context,
-              manager: manager,
-              title: 'Include Opportunity Cost in Total Savings',
-              value: context.watch<RefinanceManager>().includeOpportunityCost,
-              onChanged: (value) {
-                final oldValue = manager.includeOpportunityCost;
-                manager.includeOpportunityCost = value;
-                manager.changes.add(
-                  Change(
-                    oldValue,
-                    () => manager.includeOpportunityCost = value,
-                    (old) => manager.includeOpportunityCost = old,
-                  ),
-                );
-              },
-              subtitle: null,
-              description:
-                  'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
-              typicalValue: 'True',
-            ),
           ],
         ),
       ),
@@ -893,65 +859,6 @@ class _NewLoanSection extends StatelessWidget {
           : null,
       variableName: variableName,
       manager: manager,
-    );
-  }
-
-  Widget _buildSwitchField({
-    required BuildContext context,
-    required RefinanceManager manager,
-    required String title,
-    required bool value,
-    required Function(bool) onChanged,
-    String? subtitle,
-    String? description,
-    String? typicalValue,
-  }) {
-    final switchWidget = Switch(
-      value: value,
-      activeThumbColor: Theme.of(context).colorScheme.inversePrimary,
-      onChanged: (bool newValue) {
-        onChanged(newValue);
-      },
-    );
-
-    final switchRow = Row(
-      children: [
-        switchWidget,
-        const Spacer(),
-      ],
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            if (description != null)
-              _buildInfoButton(
-                context: context,
-                title: title,
-                description: description,
-                typicalValue: typicalValue,
-              )
-            else
-              Text(title, style: const TextStyle(fontSize: 20)),
-            const Spacer(),
-          ],
-        ),
-        if (subtitle != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 4.0),
-            child: Text(
-              subtitle,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ),
-        SizedBox(
-          height: 120.0,
-          width: MediaQuery.of(context).size.width,
-          child: switchRow,
-        ),
-      ],
     );
   }
 
@@ -1617,6 +1524,7 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
       additionalPrincipalPayment: widget.manager.additionalPrincipalPayment,
       investmentReturnRate: widget.manager.investmentReturnRate,
       includeOpportunityCost: widget.manager.includeOpportunityCost,
+      monthsUntilSale: widget.manager.monthsUntilSale,
     );
 
     if (mounted) {
@@ -1798,6 +1706,312 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
           fontWeight: color != null ? FontWeight.bold : FontWeight.normal,
         ),
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+class _InvestmentSection extends StatelessWidget {
+  const _InvestmentSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final manager = context.read<RefinanceManager>();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Investment Assumptions',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            _UndoableDoubleSlider(
+              label: 'Investment Return Rate',
+              value: context.watch<RefinanceManager>().investmentReturnRate,
+              onChanged: (value) => manager.investmentReturnRate = value,
+              suffix: '%',
+              min: 0.0,
+              max: 20.0,
+              divisions: 200,
+              description:
+                  'The annual return rate you could earn by investing the upfront costs instead of paying them now. Used to calculate opportunity cost. Historical stock market average is around 7-10%.',
+              buildInfoButton: (ctx, title, desc) => _buildInfoButton(
+                context: ctx,
+                title: title,
+                description: desc,
+                typicalValue: '7%',
+              ),
+              variableName: 'investmentReturnRate',
+              manager: manager,
+            ),
+            const SizedBox(height: 12),
+            _buildSwitchField(
+              context: context,
+              manager: manager,
+              title: 'Include Opportunity Cost',
+              value: context.watch<RefinanceManager>().includeOpportunityCost,
+              onChanged: (value) {
+                final oldValue = manager.includeOpportunityCost;
+                manager.includeOpportunityCost = value;
+                manager.changes.add(
+                  Change(
+                    oldValue,
+                    () => manager.includeOpportunityCost = value,
+                    (old) => manager.includeOpportunityCost = old,
+                  ),
+                );
+              },
+              subtitle: null,
+              description:
+                  'When enabled, the total savings calculation includes the opportunity cost of money paid upfront. This represents the potential investment returns you give up by paying costs now instead of investing that money.',
+              typicalValue: 'True',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildInfoButton({
+    required BuildContext context,
+    required String title,
+    required String description,
+    String? typicalValue,
+  }) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: () {
+        showModalBottomSheet<void>(
+          context: context,
+          builder: (BuildContext context) {
+            return SizedBox(
+              height: 250,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Spacer(),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      Text(
+                        description,
+                        textAlign: TextAlign.center,
+                      ),
+                      if (typicalValue != null) ...[
+                        const Spacer(),
+                        Text(
+                          '(typical value is $typicalValue)',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const Spacer(),
+                      ElevatedButton(
+                        child: const Text("Done"),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+        ),
+      ),
+    );
+  }
+
+  static Widget _buildSwitchField({
+    required BuildContext context,
+    required RefinanceManager manager,
+    required String title,
+    required bool value,
+    required Function(bool) onChanged,
+    String? subtitle,
+    String? description,
+    String? typicalValue,
+  }) {
+    final switchWidget = Switch(
+      value: value,
+      activeThumbColor: Theme.of(context).colorScheme.inversePrimary,
+      onChanged: (bool newValue) {
+        onChanged(newValue);
+      },
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            description != null
+                ? _buildInfoButton(
+                    context: context,
+                    title: title,
+                    description: description,
+                    typicalValue: typicalValue,
+                  )
+                : Text(title, style: const TextStyle(fontSize: 20)),
+          ],
+        ),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text(
+              subtitle,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodySmall?.color,
+                fontSize: 12,
+              ),
+            ),
+          ),
+        SizedBox(
+          height: 120.0,
+          child: Row(
+            children: [
+              switchWidget,
+              const Spacer(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeSaleSection extends StatelessWidget {
+  const _HomeSaleSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final manager = context.read<RefinanceManager>();
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Home Sale Timing',
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 16),
+            _UndoableIntSlider(
+              label: 'Months Until Home Sale',
+              value: context.watch<RefinanceManager>().monthsUntilSale,
+              onChanged: (value) =>
+                  context.read<RefinanceManager>().monthsUntilSale = value,
+              min: 1,
+              max: 360,
+              description:
+                  'How many months from now you plan to sell your home. When you sell, you pay off the remaining loan balance. This helps you understand if you\'ll hold the home long enough to recoup refinancing costs through monthly payment savings.',
+              buildInfoButton: (ctx, title, desc) => _buildInfoButton(
+                context: ctx,
+                title: title,
+                description: desc,
+                typicalValue: '120 months (10 years)',
+              ),
+              variableName: 'monthsUntilSale',
+              manager: manager,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoButton({
+    required BuildContext context,
+    required String title,
+    required String description,
+    String? typicalValue,
+  }) {
+    return TextButton(
+      style: TextButton.styleFrom(
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(0, 0),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      onPressed: () {
+        showModalBottomSheet<void>(
+          context: context,
+          builder: (BuildContext context) {
+            return SizedBox(
+              height: 250,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      const Spacer(),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const Spacer(),
+                      Text(
+                        description,
+                        textAlign: TextAlign.center,
+                      ),
+                      if (typicalValue != null) ...[
+                        const Spacer(),
+                        Text(
+                          '(typical value is $typicalValue)',
+                          style: const TextStyle(fontStyle: FontStyle.italic),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                      const Spacer(),
+                      ElevatedButton(
+                        child: const Text("Done"),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                      const Spacer(),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontSize: 20,
+        ),
       ),
     );
   }

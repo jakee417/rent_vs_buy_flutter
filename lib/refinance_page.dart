@@ -726,34 +726,20 @@ class _NewLoanSection extends StatelessWidget {
             _buildInputFieldWithUndo(
               context: context,
               manager: manager,
-              label: 'Financed Fees',
-              value: context.watch<RefinanceManager>().financedFees,
-              onChanged: (value) => manager.financedFees = value,
+              label: 'Total Closing Fees',
+              value: context.watch<RefinanceManager>().totalFees,
+              onChanged: (value) => manager.totalFees = value,
               prefix: '\$',
               min: 0,
               max: 20000,
               divisions: 200,
               description:
-                  'Closing costs that are added to your loan principal (financed). These increase your loan amount and total interest paid, but reduce upfront cash needed. Common fees include appraisal, title insurance, and origination fees.',
+                  'Total closing costs for the refinance. These include appraisal, title insurance, origination fees, and other lender charges. You can choose what percentage to finance vs pay upfront below.',
               typicalValue: '\$3,000-\$5,000',
-              variableName: 'financedFees',
+              variableName: 'totalFees',
             ),
             const SizedBox(height: 12),
-            _buildInputFieldWithUndo(
-              context: context,
-              manager: manager,
-              label: 'Upfront Fees',
-              value: context.watch<RefinanceManager>().upfrontFees,
-              onChanged: (value) => manager.upfrontFees = value,
-              prefix: '\$',
-              min: 0,
-              max: 20000,
-              divisions: 200,
-              description:
-                  'Closing costs that you pay at closing (not financed). These reduce your loan amount but require cash upfront. The upfront payment has an opportunity cost since you could have invested that money instead.',
-              typicalValue: '\$0',
-              variableName: 'upfrontFees',
-            ),
+            _buildPercentageFinancedField(context, manager),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
               context: context,
@@ -859,6 +845,90 @@ class _NewLoanSection extends StatelessWidget {
           : null,
       variableName: variableName,
       manager: manager,
+    );
+  }
+
+  Widget _buildPercentageFinancedField(
+      BuildContext context, RefinanceManager manager) {
+    final percentageFinanced =
+        context.watch<RefinanceManager>().percentageFinanced;
+    final totalFees = context.watch<RefinanceManager>().totalFees;
+    final financedAmount = totalFees * percentageFinanced;
+    final currencyFormat = NumberFormat.simpleCurrency(decimalDigits: 0);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _UndoableDoubleSlider(
+          label: 'Percentage of Fees Financed',
+          value: percentageFinanced,
+          onChanged: (value) => manager.percentageFinanced = value,
+          suffix: '%',
+          min: 0,
+          max: 1,
+          divisions: 100,
+          description:
+              'The percentage of closing fees that will be added to your loan principal (financed). Financing fees increases your loan amount and total interest paid, but reduces upfront cash needed. Fees not financed are paid at closing.',
+          buildInfoButton: (ctx, title, desc) => _buildInfoButton(
+            context: ctx,
+            title: title,
+            description: desc,
+            typicalValue: '100%',
+          ),
+          variableName: 'percentageFinanced',
+          manager: manager,
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey.withOpacity(0.05),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Amount Financed:',
+                style: TextStyle(fontSize: 16),
+              ),
+              Text(
+                currencyFormat.format(financedAmount),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey.withOpacity(0.05),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Amount Paid Upfront:',
+                style: TextStyle(fontSize: 16),
+              ),
+              Text(
+                currencyFormat.format(totalFees - financedAmount),
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

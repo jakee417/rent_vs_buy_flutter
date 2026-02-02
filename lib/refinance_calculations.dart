@@ -394,7 +394,10 @@ class RefinanceCalculations {
             monthsUntilSale: manager.monthsUntilSale,
           );
           break;
-        case 'financedFees':
+        case 'totalFees':
+          // When varying totalFees, keep the percentage financed constant
+          final financedFeesValue = gridValue * manager.percentageFinanced;
+          final upfrontFeesValue = gridValue * (1 - manager.percentageFinanced);
           totalSavings = calculateTotalCostDifference(
             remainingBalance: manager.remainingBalance,
             remainingTermMonths: manager.remainingTermMonths,
@@ -402,8 +405,8 @@ class RefinanceCalculations {
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
             points: manager.points,
-            financedFees: gridValue,
-            upfrontFees: manager.upfrontFees,
+            financedFees: financedFeesValue,
+            upfrontFees: upfrontFeesValue,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -411,7 +414,10 @@ class RefinanceCalculations {
             monthsUntilSale: manager.monthsUntilSale,
           );
           break;
-        case 'upfrontFees':
+        case 'percentageFinanced':
+          // When varying percentageFinanced, keep the total fees constant
+          final financedFeesValue = manager.totalFees * gridValue;
+          final upfrontFeesValue = manager.totalFees * (1 - gridValue);
           totalSavings = calculateTotalCostDifference(
             remainingBalance: manager.remainingBalance,
             remainingTermMonths: manager.remainingTermMonths,
@@ -419,8 +425,8 @@ class RefinanceCalculations {
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
             points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: gridValue,
+            financedFees: financedFeesValue,
+            upfrontFees: upfrontFeesValue,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,

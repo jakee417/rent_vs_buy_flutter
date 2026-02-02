@@ -315,13 +315,22 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
   double? _balanceOldValue;
   late FocusNode _balanceFocusNode;
 
+  late TextEditingController _currentInterestRateController;
+  double? _currentInterestRateOldValue;
+  late FocusNode _currentInterestRateFocusNode;
+
   @override
   void initState() {
     super.initState();
     _balanceController = TextEditingController();
     _balanceFocusNode = FocusNode();
 
+    _currentInterestRateController = TextEditingController();
+    _currentInterestRateFocusNode = FocusNode();
+
     _balanceFocusNode.addListener(_onBalanceFocusChange);
+    _currentInterestRateFocusNode
+        .addListener(_onCurrentInterestRateFocusChange);
   }
 
   @override
@@ -329,6 +338,10 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     _balanceFocusNode.removeListener(_onBalanceFocusChange);
     _balanceController.dispose();
     _balanceFocusNode.dispose();
+    _currentInterestRateFocusNode
+        .removeListener(_onCurrentInterestRateFocusChange);
+    _currentInterestRateController.dispose();
+    _currentInterestRateFocusNode.dispose();
     super.dispose();
   }
 
@@ -361,6 +374,35 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     }
   }
 
+  void _onCurrentInterestRateFocusChange() {
+    final manager = context.read<RefinanceManager>();
+    if (_currentInterestRateFocusNode.hasFocus) {
+      // Started editing - capture old value
+      _currentInterestRateOldValue = manager.currentInterestRate;
+    } else {
+      // Finished editing - add undo change if value changed
+      if (_currentInterestRateOldValue != null &&
+          _currentInterestRateOldValue != manager.currentInterestRate) {
+        final capturedOldValue = _currentInterestRateOldValue!;
+        final capturedNewValue = manager.currentInterestRate;
+        manager.changes.add(
+          Change(
+            capturedOldValue,
+            () {
+              manager.currentInterestRate = capturedNewValue;
+              _currentInterestRateController.text = capturedNewValue.toString();
+            },
+            (old) {
+              manager.currentInterestRate = old;
+              _currentInterestRateController.text = old.toString();
+            },
+          ),
+        );
+      }
+      _currentInterestRateOldValue = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final manager = context.watch<RefinanceManager>();
@@ -370,6 +412,12 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
       final balanceText = manager.remainingBalance.toString();
       if (_balanceController.text != balanceText) {
         _balanceController.text = balanceText;
+      }
+    }
+    if (!_currentInterestRateController.selection.isValid) {
+      final rateText = manager.currentInterestRate.toString();
+      if (_currentInterestRateController.text != rateText) {
+        _currentInterestRateController.text = rateText;
       }
     }
 
@@ -403,19 +451,22 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
                   'The outstanding principal balance on your current mortgage loan. This is what you still owe, not the original loan amount.',
             ),
             const SizedBox(height: 12),
-            _buildInputFieldWithUndo(
+            _buildTextInputField(
               context: context,
               label: 'Current Interest Rate',
-              value: context.watch<RefinanceManager>().currentInterestRate,
-              onChanged: (value) =>
-                  context.read<RefinanceManager>().currentInterestRate = value,
+              controller: _currentInterestRateController,
+              focusNode: _currentInterestRateFocusNode,
+              onChanged: (value) {
+                final cleanValue = value.replaceAll('%', '').trim();
+                final parsed = double.tryParse(cleanValue);
+                if (parsed != null && parsed >= 0 && parsed <= 100) {
+                  final manager = context.read<RefinanceManager>();
+                  manager.currentInterestRate = parsed;
+                }
+              },
               suffix: '%',
-              min: 0.1,
-              max: 20.0,
-              divisions: 199,
               description:
                   'The fixed annual interest rate on your current mortgage loan (not APR). This is the nominal rate used to calculate your monthly payment, excluding fees and points which are handled separately.',
-              typicalValue: '4-6%',
             ),
             const SizedBox(height: 12),
             _buildIntInputFieldWithUndo(
@@ -453,6 +504,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
     required FocusNode focusNode,
     required Function(String) onChanged,
     String? prefix,
+    String? suffix,
     String? description,
   }) {
     return Column(
@@ -473,6 +525,7 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             prefixText: prefix,
+            suffixText: suffix,
             border: const OutlineInputBorder(),
             contentPadding:
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
@@ -515,44 +568,6 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildInputFieldWithUndo({
-    required BuildContext context,
-    required String label,
-    required double value,
-    required Function(double) onChanged,
-    String? prefix,
-    String? suffix,
-    required double min,
-    required double max,
-    int divisions = 100,
-    String? description,
-    String? typicalValue,
-    String? variableName,
-  }) {
-    final manager = context.read<RefinanceManager>();
-    return _UndoableDoubleSlider(
-      label: label,
-      value: value,
-      onChanged: onChanged,
-      prefix: prefix,
-      suffix: suffix,
-      min: min,
-      max: max,
-      divisions: divisions,
-      description: description,
-      buildInfoButton: description != null
-          ? (ctx, title, desc) => _buildInfoButton(
-                context: ctx,
-                title: title,
-                description: desc,
-                typicalValue: typicalValue,
-              )
-          : null,
-      variableName: variableName,
-      manager: manager,
     );
   }
 
@@ -659,12 +674,75 @@ class _CurrentLoanSectionState extends State<_CurrentLoanSection> {
   }
 }
 
-class _NewLoanSection extends StatelessWidget {
+class _NewLoanSection extends StatefulWidget {
   const _NewLoanSection();
+
+  @override
+  State<_NewLoanSection> createState() => _NewLoanSectionState();
+}
+
+class _NewLoanSectionState extends State<_NewLoanSection> {
+  late TextEditingController _newInterestRateController;
+  double? _newInterestRateOldValue;
+  late FocusNode _newInterestRateFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _newInterestRateController = TextEditingController();
+    _newInterestRateFocusNode = FocusNode();
+    _newInterestRateFocusNode.addListener(_onNewInterestRateFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _newInterestRateFocusNode.removeListener(_onNewInterestRateFocusChange);
+    _newInterestRateController.dispose();
+    _newInterestRateFocusNode.dispose();
+    super.dispose();
+  }
+
+  void _onNewInterestRateFocusChange() {
+    final manager = context.read<RefinanceManager>();
+    if (_newInterestRateFocusNode.hasFocus) {
+      // Started editing - capture old value
+      _newInterestRateOldValue = manager.newInterestRate;
+    } else {
+      // Finished editing - add undo change if value changed
+      if (_newInterestRateOldValue != null &&
+          _newInterestRateOldValue != manager.newInterestRate) {
+        final capturedOldValue = _newInterestRateOldValue!;
+        final capturedNewValue = manager.newInterestRate;
+        manager.changes.add(
+          Change(
+            capturedOldValue,
+            () {
+              manager.newInterestRate = capturedNewValue;
+              _newInterestRateController.text = capturedNewValue.toString();
+            },
+            (old) {
+              manager.newInterestRate = old;
+              _newInterestRateController.text = old.toString();
+            },
+          ),
+        );
+      }
+      _newInterestRateOldValue = null;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final manager = context.read<RefinanceManager>();
+
+    // Update controller if value changed externally (only when not focused)
+    if (!_newInterestRateController.selection.isValid) {
+      final rateText =
+          context.watch<RefinanceManager>().newInterestRate.toString();
+      if (_newInterestRateController.text != rateText) {
+        _newInterestRateController.text = rateText;
+      }
+    }
 
     return Card(
       child: Padding(
@@ -691,20 +769,27 @@ class _NewLoanSection extends StatelessWidget {
               variableName: 'newLoanTermYears',
             ),
             const SizedBox(height: 12),
-            _buildInputFieldWithUndo(
+            _buildTextInputField(
               context: context,
               manager: manager,
               label: 'New Interest Rate',
-              value: context.watch<RefinanceManager>().newInterestRate,
-              onChanged: (value) => manager.newInterestRate = value,
+              controller: _newInterestRateController,
+              focusNode: _newInterestRateFocusNode,
+              onChanged: (value) {
+                final cleanValue = value.replaceAll('%', '').trim();
+                final parsed = double.tryParse(cleanValue);
+                if (parsed != null && parsed >= 0 && parsed <= 100) {
+                  final manager = context.read<RefinanceManager>();
+                  manager.newInterestRate = parsed;
+                }
+              },
               suffix: '%',
-              min: 0.1,
-              max: 20.0,
-              divisions: 199,
               description:
                   'The annual interest rate for the new loan. Refinancing makes sense when this rate is significantly lower than your current rate (typically at least 0.5-1% lower).',
-              typicalValue: '3-5%',
               variableName: 'newInterestRate',
+              chartMin: 0.1,
+              chartMax: 20.0,
+              chartDivisions: 199,
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(
@@ -929,6 +1014,109 @@ class _NewLoanSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTextInputField({
+    required BuildContext context,
+    required RefinanceManager manager,
+    required String label,
+    required TextEditingController controller,
+    required FocusNode focusNode,
+    required Function(String) onChanged,
+    String? prefix,
+    String? suffix,
+    String? description,
+    String? variableName,
+    double? chartMin,
+    double? chartMax,
+    int? chartDivisions,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (description != null)
+              _buildInfoButton(
+                context: context,
+                title: label,
+                description: description,
+              )
+            else
+              Text(label, style: const TextStyle(fontSize: 20)),
+            if (variableName != null &&
+                chartMin != null &&
+                chartMax != null &&
+                chartDivisions != null)
+              _buildChartButton(
+                context: context,
+                label: label,
+                variableName: variableName,
+                manager: manager,
+                min: chartMin,
+                max: chartMax,
+                divisions: chartDivisions,
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: controller,
+          focusNode: focusNode,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: InputDecoration(
+            prefixText: prefix,
+            suffixText: suffix,
+            border: const OutlineInputBorder(),
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+          ),
+          onChanged: onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChartButton({
+    required BuildContext context,
+    required String label,
+    required String variableName,
+    required RefinanceManager manager,
+    required double min,
+    required double max,
+    required int divisions,
+  }) {
+    return ElevatedButton(
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChartWidget(
+              title: label,
+              chartData: RefinanceManager.calculateChart(
+                variableName: variableName,
+                min: min,
+                max: max,
+                divisions: divisions,
+                manager: manager,
+              ),
+              description:
+                  "This chart shows how ${label.toLowerCase()} affects your total interest saved from refinancing.\n\nPositive values indicate you save money by refinancing. Negative values indicate refinancing would cost you more.",
+            ),
+          ),
+        );
+      },
+      style: ElevatedButton.styleFrom(
+        shape: const CircleBorder(),
+        padding: EdgeInsets.zero,
+        fixedSize: const Size(10, 10),
+      ),
+      child: const Icon(
+        Icons.auto_graph_sharp,
+        size: 25.0,
+        semanticLabel: "See graph of marginal values.",
+      ),
     );
   }
 

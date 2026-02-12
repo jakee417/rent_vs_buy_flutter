@@ -851,7 +851,7 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
               },
               suffix: '%',
               description:
-                  'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
+                  'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are included in total closing costs and can be financed or paid upfront using the slider below.',
               variableName: 'points',
               chartMin: 0.0,
               chartMax: 5.0,
@@ -861,7 +861,7 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
             _buildInputFieldWithUndo(
               context: context,
               manager: manager,
-              label: 'Total Closing Fees',
+              label: 'Other Closing Costs',
               value: context.watch<RefinanceManager>().totalFees,
               onChanged: (value) => manager.totalFees = value,
               prefix: '\$',
@@ -869,7 +869,7 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
               max: 20000,
               divisions: 200,
               description:
-                  'Total closing costs for the refinance. These include appraisal, title insurance, origination fees, and other lender charges. You can choose what percentage to finance vs pay upfront below.',
+                  'Other closing costs for the refinance (excluding points). These include appraisal, title insurance, origination fees, and other lender charges. Points are added to this to form the total closing costs pool, and you can choose what percentage to finance vs pay upfront below.',
               typicalValue: '\$3,000-\$5,000',
               variableName: 'totalFees',
             ),
@@ -987,8 +987,9 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
       BuildContext context, RefinanceManager manager) {
     final percentageFinanced =
         context.watch<RefinanceManager>().percentageFinanced;
-    final totalFees = context.watch<RefinanceManager>().totalFees;
-    final financedAmount = totalFees * percentageFinanced;
+    final totalPool = context.watch<RefinanceManager>().totalClosingCosts;
+    final financedAmount = context.watch<RefinanceManager>().financedFees;
+    final pointsCost = context.watch<RefinanceManager>().calculatePointsCost();
     final currencyFormat = NumberFormat.simpleCurrency(decimalDigits: 0);
 
     return Column(
@@ -1003,7 +1004,7 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
           max: 1,
           divisions: 100,
           description:
-              'The percentage of closing fees that will be added to your loan principal (financed). Financing fees increases your loan amount and total interest paid, but reduces upfront cash needed. Fees not financed are paid at closing.',
+              'The percentage of total closing costs (including points) that will be added to your loan principal (financed). Financing fees increases your loan amount and total interest paid, but reduces upfront cash needed. Fees not financed are paid at closing.',
           buildInfoButton: (ctx, title, desc) => _buildInfoButton(
             context: ctx,
             title: title,
@@ -1014,6 +1015,31 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
           manager: manager,
         ),
         const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade400),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.grey.withOpacity(0.05),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total Closing Costs:',
+                style: TextStyle(fontSize: 16),
+              ),
+              Text(
+                '${currencyFormat.format(totalPool)}${pointsCost > 0 ? ' (incl. ${currencyFormat.format(pointsCost)} points)' : ''}',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
           decoration: BoxDecoration(
@@ -1054,7 +1080,7 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
                 style: TextStyle(fontSize: 16),
               ),
               Text(
-                currencyFormat.format(totalFees - financedAmount),
+                currencyFormat.format(totalPool - financedAmount),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -1825,9 +1851,9 @@ class _MonthlyBreakdownDialogState extends State<MonthlyBreakdownDialog> {
       currentInterestRate: widget.manager.currentInterestRate,
       newLoanTermYears: widget.manager.newLoanTermYears,
       newInterestRate: widget.manager.newInterestRate,
-      points: widget.manager.points,
-      financedFees: widget.manager.financedFees,
-      upfrontFees: widget.manager.upfrontFees,
+      otherClosingCosts: widget.manager.totalFees,
+      pointsPercent: widget.manager.points,
+      percentageFinanced: widget.manager.percentageFinanced,
       cashOutAmount: widget.manager.cashOutAmount,
       additionalPrincipalPayment: widget.manager.additionalPrincipalPayment,
       investmentReturnRate: widget.manager.investmentReturnRate,

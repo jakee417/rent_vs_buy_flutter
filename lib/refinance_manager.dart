@@ -41,9 +41,30 @@ class RefinanceManager extends ChangeNotifier {
   double get points => _points;
   double get totalFees => _totalFees;
   double get percentageFinanced => _percentageFinanced;
-  // Computed getters for backward compatibility with calculations
-  double get financedFees => _totalFees * _percentageFinanced;
-  double get upfrontFees => _totalFees * (1 - _percentageFinanced);
+  // Total closing costs including points and other fees
+  double get totalClosingCosts => _resolveAll().totalClosingCosts;
+  // Computed getters: financedFees and upfrontFees include points in the pool
+  double get financedFees => _resolveAll().financedFees;
+  double get upfrontFees => _resolveAll().upfrontFees;
+
+  // Resolve the circular dependency between points, loan amount, and fees
+  ({
+    double newLoanAmount,
+    double financedFees,
+    double upfrontFees,
+    double pointsCost,
+    double totalClosingCosts
+  }) _resolveAll() {
+    return RefinanceCalculations.resolveFeesAndLoanAmount(
+      remainingBalance: _remainingBalance,
+      cashOutAmount: _cashOutAmount,
+      additionalPrincipalPayment: _additionalPrincipalPayment,
+      otherClosingCosts: _totalFees,
+      pointsPercent: _points,
+      percentageFinanced: _percentageFinanced,
+    );
+  }
+
   double get cashOutAmount => _cashOutAmount;
   double get additionalPrincipalPayment => _additionalPrincipalPayment;
   double get investmentReturnRate => _investmentReturnRate;
@@ -132,12 +153,7 @@ class RefinanceManager extends ChangeNotifier {
 
   // Calculation methods
   double calculateNewLoanAmount() {
-    return RefinanceCalculations.calculateNewLoanAmount(
-      remainingBalance: _remainingBalance,
-      cashOutAmount: _cashOutAmount,
-      financedFees: financedFees,
-      additionalPrincipalPayment: _additionalPrincipalPayment,
-    );
+    return _resolveAll().newLoanAmount;
   }
 
   double calculateCurrentMonthlyPayment() {
@@ -163,17 +179,13 @@ class RefinanceManager extends ChangeNotifier {
     final termMonths = _newLoanTermYears * 12;
 
     // Calculate the actual amount received (principal minus upfront costs)
+    // upfrontFees now includes the upfront portion of points
     double amountFinanced = _remainingBalance + _cashOutAmount;
-    // Upfront fees reduce the amount received
     amountFinanced -= upfrontFees;
     amountFinanced -= _additionalPrincipalPayment;
 
-    // Points are always a prepaid finance charge
-    final pointsCost = calculatePointsCost();
-    amountFinanced -= pointsCost;
-
-    // If we're not paying any fees upfront, APR equals the interest rate
-    if (pointsCost == 0 && upfrontFees == 0) {
+    // If nothing is paid upfront, APR equals the interest rate
+    if (upfrontFees == 0) {
       return _newInterestRate;
     }
 
@@ -214,13 +226,11 @@ class RefinanceManager extends ChangeNotifier {
   }
 
   double calculatePointsCost() {
-    return calculateNewLoanAmount() * (_points / 100);
+    return _resolveAll().pointsCost;
   }
 
   double calculateTotalUpfrontCosts() {
     return RefinanceCalculations.calculateUpfrontCosts(
-      loanAmount: calculateNewLoanAmount(),
-      points: _points,
       upfrontFees: upfrontFees,
       additionalPrincipalPayment: _additionalPrincipalPayment,
     );
@@ -271,9 +281,9 @@ class RefinanceManager extends ChangeNotifier {
       currentInterestRate: _currentInterestRate,
       newLoanTermYears: _newLoanTermYears,
       newInterestRate: _newInterestRate,
-      points: _points,
-      financedFees: financedFees,
-      upfrontFees: upfrontFees,
+      otherClosingCosts: _totalFees,
+      pointsPercent: _points,
+      percentageFinanced: _percentageFinanced,
       cashOutAmount: _cashOutAmount,
       additionalPrincipalPayment: _additionalPrincipalPayment,
       investmentReturnRate: _investmentReturnRate,

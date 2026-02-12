@@ -37,6 +37,44 @@ class MonthlyBreakdown {
 
 /// Static calculation methods for refinance analysis
 class RefinanceCalculations {
+  /// Resolve the circular dependency between points and loan amount.
+  /// Points cost depends on loan amount, and loan amount depends on financed fees
+  /// which include points. This solves algebraically:
+  ///   newLoanAmount = (base + otherClosingCosts * f) / (1 - p * f)
+  /// where base = remainingBalance + cashOutAmount - additionalPrincipalPayment,
+  ///       p = pointsPercent / 100, f = percentageFinanced.
+  static ({
+    double newLoanAmount,
+    double financedFees,
+    double upfrontFees,
+    double pointsCost,
+    double totalClosingCosts,
+  }) resolveFeesAndLoanAmount({
+    required double remainingBalance,
+    required double cashOutAmount,
+    required double additionalPrincipalPayment,
+    required double otherClosingCosts,
+    required double pointsPercent,
+    required double percentageFinanced,
+  }) {
+    final base = remainingBalance + cashOutAmount - additionalPrincipalPayment;
+    final p = pointsPercent / 100;
+    final f = percentageFinanced;
+    final denom = 1 - p * f;
+    final newLoanAmount = denom > 0
+        ? (base + otherClosingCosts * f) / denom
+        : base + otherClosingCosts * f;
+    final pointsCost = newLoanAmount * p;
+    final totalClosingCosts = otherClosingCosts + pointsCost;
+    return (
+      newLoanAmount: newLoanAmount,
+      financedFees: totalClosingCosts * f,
+      upfrontFees: totalClosingCosts * (1 - f),
+      pointsCost: pointsCost,
+      totalClosingCosts: totalClosingCosts,
+    );
+  }
+
   // Static helper to calculate monthly payment
   static double calculateMonthlyPayment({
     required double principal,
@@ -80,16 +118,10 @@ class RefinanceCalculations {
   }
 
   static double calculateUpfrontCosts({
-    required double loanAmount,
-    required double points,
     required double upfrontFees,
     required double additionalPrincipalPayment,
   }) {
-    final pointsCost = loanAmount * (points / 100);
-    double upfrontCosts = pointsCost;
-    upfrontCosts += upfrontFees;
-    upfrontCosts += additionalPrincipalPayment;
-    return upfrontCosts;
+    return upfrontFees + additionalPrincipalPayment;
   }
 
   static double calculateOpportunityCost({
@@ -155,9 +187,9 @@ class RefinanceCalculations {
     required double currentInterestRate,
     required int newLoanTermYears,
     required double newInterestRate,
-    required double points,
-    required double financedFees,
-    required double upfrontFees,
+    required double otherClosingCosts,
+    required double pointsPercent,
+    required double percentageFinanced,
     required double cashOutAmount,
     required double additionalPrincipalPayment,
     required double investmentReturnRate,
@@ -166,19 +198,20 @@ class RefinanceCalculations {
   }) {
     final numPayments = newLoanTermYears * 12;
 
-    // Calculate new loan amount
-    final newLoanAmount = calculateNewLoanAmount(
+    // Resolve circular dependency between points and loan amount
+    final resolved = resolveFeesAndLoanAmount(
       remainingBalance: remainingBalance,
       cashOutAmount: cashOutAmount,
-      financedFees: financedFees,
       additionalPrincipalPayment: additionalPrincipalPayment,
+      otherClosingCosts: otherClosingCosts,
+      pointsPercent: pointsPercent,
+      percentageFinanced: percentageFinanced,
     );
+    final newLoanAmount = resolved.newLoanAmount;
 
     // Calculate upfront costs
     final upfrontCosts = calculateUpfrontCosts(
-      loanAmount: newLoanAmount,
-      points: points,
-      upfrontFees: upfrontFees,
+      upfrontFees: resolved.upfrontFees,
       additionalPrincipalPayment: additionalPrincipalPayment,
     );
 
@@ -333,9 +366,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -350,9 +383,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: gridValue.round(),
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -367,9 +400,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: gridValue,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -384,9 +417,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: gridValue,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: gridValue,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -395,18 +428,16 @@ class RefinanceCalculations {
           );
           break;
         case 'totalFees':
-          // When varying totalFees, keep the percentage financed constant
-          final financedFeesValue = gridValue * manager.percentageFinanced;
-          final upfrontFeesValue = gridValue * (1 - manager.percentageFinanced);
+          // When varying totalFees (other closing costs), keep percentage financed and points constant
           totalSavings = calculateTotalCostDifference(
             remainingBalance: manager.remainingBalance,
             remainingTermMonths: manager.remainingTermMonths,
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: financedFeesValue,
-            upfrontFees: upfrontFeesValue,
+            otherClosingCosts: gridValue,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -415,18 +446,16 @@ class RefinanceCalculations {
           );
           break;
         case 'percentageFinanced':
-          // When varying percentageFinanced, keep the total fees constant
-          final financedFeesValue = manager.totalFees * gridValue;
-          final upfrontFeesValue = manager.totalFees * (1 - gridValue);
+          // When varying percentageFinanced, keep other closing costs and points constant
           totalSavings = calculateTotalCostDifference(
             remainingBalance: manager.remainingBalance,
             remainingTermMonths: manager.remainingTermMonths,
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: financedFeesValue,
-            upfrontFees: upfrontFeesValue,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: gridValue,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -441,9 +470,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: gridValue,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -458,9 +487,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: gridValue,
             investmentReturnRate: manager.investmentReturnRate,
@@ -475,9 +504,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: gridValue,
@@ -492,9 +521,9 @@ class RefinanceCalculations {
             currentInterestRate: manager.currentInterestRate,
             newLoanTermYears: manager.newLoanTermYears,
             newInterestRate: manager.newInterestRate,
-            points: manager.points,
-            financedFees: manager.financedFees,
-            upfrontFees: manager.upfrontFees,
+            otherClosingCosts: manager.totalFees,
+            pointsPercent: manager.points,
+            percentageFinanced: manager.percentageFinanced,
             cashOutAmount: manager.cashOutAmount,
             additionalPrincipalPayment: manager.additionalPrincipalPayment,
             investmentReturnRate: manager.investmentReturnRate,
@@ -546,9 +575,9 @@ class RefinanceCalculations {
     required double currentInterestRate,
     required int newLoanTermYears,
     required double newInterestRate,
-    required double points,
-    required double financedFees,
-    required double upfrontFees,
+    required double otherClosingCosts,
+    required double pointsPercent,
+    required double percentageFinanced,
     required double cashOutAmount,
     required double additionalPrincipalPayment,
     required double investmentReturnRate,
@@ -557,6 +586,16 @@ class RefinanceCalculations {
   }) async {
     final List<MonthlyBreakdown> breakdown = [];
 
+    // Resolve circular dependency between points and loan amount
+    final resolved = resolveFeesAndLoanAmount(
+      remainingBalance: remainingBalance,
+      cashOutAmount: cashOutAmount,
+      additionalPrincipalPayment: additionalPrincipalPayment,
+      otherClosingCosts: otherClosingCosts,
+      pointsPercent: pointsPercent,
+      percentageFinanced: percentageFinanced,
+    );
+
     // Calculate monthly payments
     final currentMonthlyPayment = calculateMonthlyPayment(
       principal: remainingBalance,
@@ -564,12 +603,7 @@ class RefinanceCalculations {
       termMonths: remainingTermMonths,
     );
 
-    final newLoanAmount = calculateNewLoanAmount(
-      remainingBalance: remainingBalance,
-      cashOutAmount: cashOutAmount,
-      financedFees: financedFees,
-      additionalPrincipalPayment: additionalPrincipalPayment,
-    );
+    final newLoanAmount = resolved.newLoanAmount;
 
     final newLoanTermMonths = newLoanTermYears * 12;
     final newMonthlyPayment = calculateMonthlyPayment(
@@ -580,9 +614,7 @@ class RefinanceCalculations {
 
     // Calculate upfront costs
     final upfrontCosts = calculateUpfrontCosts(
-      loanAmount: newLoanAmount,
-      points: points,
-      upfrontFees: upfrontFees,
+      upfrontFees: resolved.upfrontFees,
       additionalPrincipalPayment: additionalPrincipalPayment,
     );
 

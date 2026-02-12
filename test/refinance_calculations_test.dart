@@ -3,6 +3,109 @@ import 'package:finance_calculator/refinance_calculations.dart';
 
 void main() {
   group('RefinanceCalculations', () {
+    group('resolveFeesAndLoanAmount', () {
+      test('should match simple case when no points', () {
+        final resolved = RefinanceCalculations.resolveFeesAndLoanAmount(
+          remainingBalance: 200000,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
+        );
+
+        // No points: newLoanAmount = 200000 + 3000 = 203000
+        expect(resolved.newLoanAmount, closeTo(203000, 0.01));
+        expect(resolved.pointsCost, closeTo(0, 0.01));
+        expect(resolved.financedFees, closeTo(3000, 0.01));
+        expect(resolved.upfrontFees, closeTo(0, 0.01));
+      });
+
+      test('should resolve correctly when points are fully financed', () {
+        // 1% points, all financed
+        // base = 200000, F = 3000, p = 0.01, f = 1.0
+        // newLoanAmount = (200000 + 3000) / (1 - 0.01) = 203000 / 0.99 ≈ 205050.51
+        final resolved = RefinanceCalculations.resolveFeesAndLoanAmount(
+          remainingBalance: 200000,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 1.0,
+          percentageFinanced: 1.0,
+        );
+
+        expect(resolved.newLoanAmount, closeTo(205050.51, 1.0));
+        expect(resolved.pointsCost, closeTo(2050.51, 1.0));
+        // totalPool = 3000 + 2050.51 = 5050.51, all financed
+        expect(resolved.financedFees, closeTo(5050.51, 1.0));
+        expect(resolved.upfrontFees, closeTo(0, 0.01));
+      });
+
+      test('should resolve correctly when points are fully upfront', () {
+        // 1% points, nothing financed
+        // base = 200000, F = 3000, p = 0.01, f = 0
+        // newLoanAmount = 200000 (nothing financed)
+        final resolved = RefinanceCalculations.resolveFeesAndLoanAmount(
+          remainingBalance: 200000,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 1.0,
+          percentageFinanced: 0.0,
+        );
+
+        expect(resolved.newLoanAmount, closeTo(200000, 0.01));
+        expect(resolved.pointsCost, closeTo(2000, 0.01));
+        // totalPool = 3000 + 2000 = 5000, all upfront
+        expect(resolved.financedFees, closeTo(0, 0.01));
+        expect(resolved.upfrontFees, closeTo(5000, 0.01));
+      });
+
+      test('should resolve with partial financing', () {
+        // 1% points, 50% financed
+        // base = 200000, F = 3000, p = 0.01, f = 0.5
+        // denom = 1 - 0.01 * 0.5 = 0.995
+        // newLoanAmount = (200000 + 1500) / 0.995 ≈ 202512.56
+        final resolved = RefinanceCalculations.resolveFeesAndLoanAmount(
+          remainingBalance: 200000,
+          cashOutAmount: 0,
+          additionalPrincipalPayment: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 1.0,
+          percentageFinanced: 0.5,
+        );
+
+        expect(resolved.newLoanAmount, closeTo(202512.56, 1.0));
+        final expectedPoints = 202512.56 * 0.01;
+        expect(resolved.pointsCost, closeTo(expectedPoints, 1.0));
+        final expectedPool = 3000 + expectedPoints;
+        expect(resolved.financedFees, closeTo(expectedPool * 0.5, 1.0));
+        expect(resolved.upfrontFees, closeTo(expectedPool * 0.5, 1.0));
+      });
+
+      test('should verify self-consistency of resolved values', () {
+        // The key invariant: newLoanAmount = base + financedFees
+        final resolved = RefinanceCalculations.resolveFeesAndLoanAmount(
+          remainingBalance: 200000,
+          cashOutAmount: 10000,
+          additionalPrincipalPayment: 5000,
+          otherClosingCosts: 4000,
+          pointsPercent: 1.5,
+          percentageFinanced: 0.75,
+        );
+
+        final base = 200000.0 + 10000 - 5000;
+        expect(resolved.newLoanAmount,
+            closeTo(base + resolved.financedFees, 0.01));
+        expect(
+            resolved.pointsCost, closeTo(resolved.newLoanAmount * 0.015, 0.01));
+        expect(resolved.totalClosingCosts,
+            closeTo(4000 + resolved.pointsCost, 0.01));
+        expect(resolved.financedFees + resolved.upfrontFees,
+            closeTo(resolved.totalClosingCosts, 0.01));
+      });
+    });
+
     group('calculateMonthlyPayment', () {
       test('should calculate correct monthly payment for standard loan', () {
         // 200k loan at 4.5% for 30 years (360 months)
@@ -148,66 +251,53 @@ void main() {
     });
 
     group('calculateUpfrontCosts', () {
-      test('should calculate upfront costs with points and no upfront fees',
-          () {
+      test('should calculate upfront costs with upfront fees only', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          loanAmount: 200000,
-          points: 1.0,
-          upfrontFees: 0,
+          upfrontFees: 2000,
           additionalPrincipalPayment: 0,
         );
 
-        // Points: 200000 * 0.01 = 2000
-        // No upfront fees, so only points: 2000
+        // Upfront fees only: 2000
         expect(upfrontCosts, equals(2000));
       });
 
       test('should calculate upfront costs with upfront fees', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          loanAmount: 200000,
-          points: 1.0,
           upfrontFees: 3000,
           additionalPrincipalPayment: 0,
         );
 
-        // Points: 2000 + Upfront fees: 3000 = 5000
-        expect(upfrontCosts, equals(5000));
+        // Upfront fees: 3000
+        expect(upfrontCosts, equals(3000));
       });
 
       test('should include additional principal payment', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          loanAmount: 200000,
-          points: 0.5,
-          upfrontFees: 0,
+          upfrontFees: 1000,
           additionalPrincipalPayment: 10000,
         );
 
-        // Points: 1000 + Additional: 10000 = 11000
+        // 1000 + 10000 = 11000
         expect(upfrontCosts, equals(11000));
       });
 
-      test('should handle zero points', () {
+      test('should handle zero upfront fees', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          loanAmount: 200000,
-          points: 0,
-          upfrontFees: 3000,
+          upfrontFees: 0,
           additionalPrincipalPayment: 5000,
         );
 
-        // 0 + 3000 + 5000 = 8000
-        expect(upfrontCosts, equals(8000));
+        // 0 + 5000 = 5000
+        expect(upfrontCosts, equals(5000));
       });
 
-      test('should calculate 2 points correctly', () {
+      test('should handle all zeros', () {
         final upfrontCosts = RefinanceCalculations.calculateUpfrontCosts(
-          loanAmount: 250000,
-          points: 2.0,
           upfrontFees: 0,
           additionalPrincipalPayment: 0,
         );
 
-        // 250000 * 0.02 = 5000
-        expect(upfrontCosts, equals(5000));
+        expect(upfrontCosts, equals(0));
       });
     });
 
@@ -267,9 +357,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 20, // Same term
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -289,9 +379,9 @@ void main() {
           currentInterestRate: 4.0,
           newLoanTermYears: 30,
           newInterestRate: 3.8,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -311,9 +401,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 1.0, // 2000 upfront
-          financedFees: 0,
-          upfrontFees: 3000, // Pay 3000 upfront
+          otherClosingCosts: 3000,
+          pointsPercent: 1.0, // 1% points
+          percentageFinanced: 0.0, // Pay everything upfront
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -327,9 +417,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 1.0,
-          financedFees: 0,
-          upfrontFees: 3000,
+          otherClosingCosts: 3000,
+          pointsPercent: 1.0,
+          percentageFinanced: 0.0, // Pay everything upfront
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -348,9 +438,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 50000,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -370,9 +460,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -386,9 +476,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 20000,
           investmentReturnRate: 7.0,
@@ -410,9 +500,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -427,9 +517,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -453,9 +543,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -470,9 +560,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -487,9 +577,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -520,9 +610,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 0,
-          upfrontFees: 0,
+          otherClosingCosts: 0,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -548,9 +638,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: newLoanTermYears,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 0,
-          upfrontFees: 0,
+          otherClosingCosts: 0,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -573,9 +663,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,
@@ -590,9 +680,9 @@ void main() {
           currentInterestRate: 4.5,
           newLoanTermYears: 30,
           newInterestRate: 3.5,
-          points: 0,
-          financedFees: 3000,
-          upfrontFees: 0,
+          otherClosingCosts: 3000,
+          pointsPercent: 0,
+          percentageFinanced: 1.0,
           cashOutAmount: 0,
           additionalPrincipalPayment: 0,
           investmentReturnRate: 7.0,

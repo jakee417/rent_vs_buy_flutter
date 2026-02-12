@@ -686,12 +686,20 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
   double? _newInterestRateOldValue;
   late FocusNode _newInterestRateFocusNode;
 
+  late TextEditingController _pointsController;
+  double? _pointsOldValue;
+  late FocusNode _pointsFocusNode;
+
   @override
   void initState() {
     super.initState();
     _newInterestRateController = TextEditingController();
     _newInterestRateFocusNode = FocusNode();
     _newInterestRateFocusNode.addListener(_onNewInterestRateFocusChange);
+
+    _pointsController = TextEditingController();
+    _pointsFocusNode = FocusNode();
+    _pointsFocusNode.addListener(_onPointsFocusChange);
   }
 
   @override
@@ -699,7 +707,36 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
     _newInterestRateFocusNode.removeListener(_onNewInterestRateFocusChange);
     _newInterestRateController.dispose();
     _newInterestRateFocusNode.dispose();
+    _pointsFocusNode.removeListener(_onPointsFocusChange);
+    _pointsController.dispose();
+    _pointsFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onPointsFocusChange() {
+    final manager = context.read<RefinanceManager>();
+    if (_pointsFocusNode.hasFocus) {
+      _pointsOldValue = manager.points;
+    } else {
+      if (_pointsOldValue != null && _pointsOldValue != manager.points) {
+        final capturedOldValue = _pointsOldValue!;
+        final capturedNewValue = manager.points;
+        manager.changes.add(
+          Change(
+            capturedOldValue,
+            () {
+              manager.points = capturedNewValue;
+              _pointsController.text = capturedNewValue.toString();
+            },
+            (old) {
+              manager.points = old;
+              _pointsController.text = old.toString();
+            },
+          ),
+        );
+      }
+      _pointsOldValue = null;
+    }
   }
 
   void _onNewInterestRateFocusChange() {
@@ -741,6 +778,12 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
           context.watch<RefinanceManager>().newInterestRate.toString();
       if (_newInterestRateController.text != rateText) {
         _newInterestRateController.text = rateText;
+      }
+    }
+    if (!_pointsController.selection.isValid) {
+      final pointsText = context.watch<RefinanceManager>().points.toString();
+      if (_pointsController.text != pointsText) {
+        _pointsController.text = pointsText;
       }
     }
 
@@ -792,20 +835,27 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
               chartDivisions: 199,
             ),
             const SizedBox(height: 12),
-            _buildInputFieldWithUndo(
+            _buildTextInputField(
               context: context,
               manager: manager,
               label: 'Points',
-              value: context.watch<RefinanceManager>().points,
-              onChanged: (value) => manager.points = value,
+              controller: _pointsController,
+              focusNode: _pointsFocusNode,
+              onChanged: (value) {
+                final cleanValue = value.replaceAll('%', '').trim();
+                final parsed = double.tryParse(cleanValue);
+                if (parsed != null && parsed >= 0 && parsed <= 100) {
+                  final manager = context.read<RefinanceManager>();
+                  manager.points = parsed;
+                }
+              },
               suffix: '%',
-              min: 0.0,
-              max: 5.0,
-              divisions: 50,
               description:
                   'Discount points paid to reduce the interest rate. Each point equals 1% of the loan amount and typically reduces the rate by ~0.25%. Points are always paid upfront.',
-              typicalValue: '0-2%',
               variableName: 'points',
+              chartMin: 0.0,
+              chartMax: 5.0,
+              chartDivisions: 50,
             ),
             const SizedBox(height: 12),
             _buildInputFieldWithUndo(

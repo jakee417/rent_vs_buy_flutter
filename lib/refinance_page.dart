@@ -690,6 +690,10 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
   double? _pointsOldValue;
   late FocusNode _pointsFocusNode;
 
+  late TextEditingController _totalFeesController;
+  double? _totalFeesOldValue;
+  late FocusNode _totalFeesFocusNode;
+
   @override
   void initState() {
     super.initState();
@@ -700,6 +704,10 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
     _pointsController = TextEditingController();
     _pointsFocusNode = FocusNode();
     _pointsFocusNode.addListener(_onPointsFocusChange);
+
+    _totalFeesController = TextEditingController();
+    _totalFeesFocusNode = FocusNode();
+    _totalFeesFocusNode.addListener(_onTotalFeesFocusChange);
   }
 
   @override
@@ -710,6 +718,9 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
     _pointsFocusNode.removeListener(_onPointsFocusChange);
     _pointsController.dispose();
     _pointsFocusNode.dispose();
+    _totalFeesFocusNode.removeListener(_onTotalFeesFocusChange);
+    _totalFeesController.dispose();
+    _totalFeesFocusNode.dispose();
     super.dispose();
   }
 
@@ -736,6 +747,33 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
         );
       }
       _pointsOldValue = null;
+    }
+  }
+
+  void _onTotalFeesFocusChange() {
+    final manager = context.read<RefinanceManager>();
+    if (_totalFeesFocusNode.hasFocus) {
+      _totalFeesOldValue = manager.totalFees;
+    } else {
+      if (_totalFeesOldValue != null &&
+          _totalFeesOldValue != manager.totalFees) {
+        final capturedOldValue = _totalFeesOldValue!;
+        final capturedNewValue = manager.totalFees;
+        manager.changes.add(
+          Change(
+            capturedOldValue,
+            () {
+              manager.totalFees = capturedNewValue;
+              _totalFeesController.text = capturedNewValue.toString();
+            },
+            (old) {
+              manager.totalFees = old;
+              _totalFeesController.text = old.toString();
+            },
+          ),
+        );
+      }
+      _totalFeesOldValue = null;
     }
   }
 
@@ -784,6 +822,12 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
       final pointsText = context.watch<RefinanceManager>().points.toString();
       if (_pointsController.text != pointsText) {
         _pointsController.text = pointsText;
+      }
+    }
+    if (!_totalFeesController.selection.isValid) {
+      final feesText = context.watch<RefinanceManager>().totalFees.toString();
+      if (_totalFeesController.text != feesText) {
+        _totalFeesController.text = feesText;
       }
     }
 
@@ -858,20 +902,28 @@ class _NewLoanSectionState extends State<_NewLoanSection> {
               chartDivisions: 50,
             ),
             const SizedBox(height: 12),
-            _buildInputFieldWithUndo(
+            _buildTextInputField(
               context: context,
               manager: manager,
               label: 'Other Closing Costs',
-              value: context.watch<RefinanceManager>().totalFees,
-              onChanged: (value) => manager.totalFees = value,
+              controller: _totalFeesController,
+              focusNode: _totalFeesFocusNode,
+              onChanged: (value) {
+                final cleanValue =
+                    value.replaceAll('\$', '').replaceAll(',', '').trim();
+                final parsed = double.tryParse(cleanValue);
+                if (parsed != null && parsed >= 0) {
+                  final manager = context.read<RefinanceManager>();
+                  manager.totalFees = parsed;
+                }
+              },
               prefix: '\$',
-              min: 0,
-              max: 20000,
-              divisions: 200,
               description:
                   'Other closing costs for the refinance (excluding points). These include appraisal, title insurance, origination fees, and other lender charges. Points are added to this to form the total closing costs pool, and you can choose what percentage to finance vs pay upfront below.',
-              typicalValue: '\$3,000-\$5,000',
               variableName: 'totalFees',
+              chartMin: 0.0,
+              chartMax: 20000.0,
+              chartDivisions: 200,
             ),
             const SizedBox(height: 12),
             _buildPercentageFinancedField(context, manager),
